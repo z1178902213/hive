@@ -81,7 +81,7 @@ def fast_ratio(image, ratio):
 
     # 将比例进行缩放
     for keypoint in key_points:
-        x, y = keypoint.pt / ratio
+        x, y = keypoint.pt[0] / ratio, keypoint.pt[1] / ratio
         resume_points.append((x, y))
     return resume_points
 
@@ -91,7 +91,7 @@ def fit_circle(key_points):
     y_data = []
     # 获取所有的角点
     for keypoint in key_points:
-        x, y = keypoint.pt
+        x, y = keypoint
         x_data.append(x)
         y_data.append(y)
     x_data = np.array(x_data)
@@ -110,12 +110,13 @@ def fit_circle(key_points):
     return result.x
 
 
-def draw_circle(circle_params, standard):
+def draw_circle(img, circle_params, standard, offsets, thickness=10):
     a, b, r = circle_params
+    offset_x, offset_y = offsets
     # 生成一组用于绘制圆的角度值
     theta = np.linspace(0, 2 * np.pi, 100)
-    x_values = a + r * np.cos(theta)
-    y_values = b + r * np.sin(theta)
+    x_values = a + r * np.cos(theta) + offset_x
+    y_values = b + r * np.sin(theta) + offset_y
 
     # 将坐标变为整数
     x_values = x_values.astype(int)
@@ -131,9 +132,7 @@ def draw_circle(circle_params, standard):
     # 绘制拟合的曲线
     for i in range(len(x_values) - 1):
         cv2.line(img, (x_values[i], y_values[i]),
-                 (x_values[i + 1], y_values[i + 1]), draw_color, 10)
-
-    img = cv2.resize(img, (w, h))
+                 (x_values[i + 1], y_values[i + 1]), draw_color, thickness)
 
     return img, int(r / 3)
 
@@ -168,22 +167,17 @@ if __name__ == '__main__':
                     cv2.imwrite(
                         f'{OUTPUTS_ROOT}/{SOURCE.split(".")[1]}_cut_{index}.jpg', cut_image)
                 try:
-                    # fast_cut_image, r = fast_ratio(
-                    #     cut_image, my_find.standard2)
-                    fast_cut_image, r = fast_ratio(
-                        cut_image, fast_ratio)
+                    fast_keypoints = fast_ratio(
+                        cut_image, RESHAPE_RATIO)
+                    circle = fit_circle(fast_keypoints)
+                    # 为中心下方的两个六边形绘制圆与标签
+                    if my_find.in_contour(xyxy):
+                        draw_circle(image, circle, my_find.standard2,
+                                    (int(xyxy[0]), int(xyxy[1])), thickness=2)
+                        cv2.putText(image, f'{(circle[2] * 2 / my_find.standard2):.2f}mm', (int(
+                            xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
                 except Exception as e:
                     print(f'未知错误{e}，跳过该box')
                     continue
-                if SHOW_FAST_CUT_IMAGE:
-                    cv2.imwrite(
-                        f'{OUTPUTS_ROOT}/{SOURCE.split(".")[1]}_fast_cut_{index}.jpg', fast_cut_image)
-
-                # 将小图片重新贴回大图中
-                if my_find.in_contour(xyxy):
-                    image[int(xyxy[1]):int(xyxy[3]), int(xyxy[0])
-                              :int(xyxy[2])] = fast_cut_image
-                    cv2.putText(image, f'{(r * 2 / my_find.standard2):.2f}mm', (int(
-                        xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
             cv2.imwrite(
                 f'{OUTPUTS_ROOT}/{image_name.split(".")[0]}_detect.jpg', image)
