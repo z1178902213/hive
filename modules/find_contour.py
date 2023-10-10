@@ -41,13 +41,12 @@ class FindContour(object):
         mask = np.where(label_images == max_label, 0, 1)
         contours, _ = cv2.findContours(mask.astype(
             np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cont in contours:
-            print(cont)
         contours = [cnt for cnt in contours if
-                    cv2.contourArea(cnt) > 20000 and not np.all(cnt[..., 1] <= (self.h / 2 + 30))]
+                    cv2.contourArea(cnt) > 2000 and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
         mid_dis = self.calculate_dis(contours, self.center_point)
         mid_dis.sort(key=lambda x: x[1])
-        assert len(mid_dis) > 0
+        if len(mid_dis) == 0:
+            return mid_dis
         center_contour = contours[mid_dis[0][0]]
         M = cv2.moments(center_contour)
         cX = int(M["m10"] / M["m00"])
@@ -56,7 +55,8 @@ class FindContour(object):
         result = self.calculate_dis(contours, (cX, cY))
         result.sort(key=lambda x: x[1])
         find_topk = []
-        assert len(result) > topk
+        if len(result) < topk:
+            return []
         for i in range(topk):
             find_topk.append(contours[result[i][0]])
         if draw:
@@ -126,7 +126,7 @@ class FindContour(object):
 
 
 if __name__ == '__main__':
-    for img in [img for img in os.listdir('../imgs') if img.endswith('jpg')]:
+    for img in [img for img in os.listdir('../imgs') if img.endswith('2023_09_15_10_36_26.jpg')]:
         img_name = os.path.splitext(img)[0]
         image = cv2.imread('../imgs/{}'.format(img), cv2.THRESH_BINARY_INV)
         findcontours = FindContour(image, 2, True, True)
