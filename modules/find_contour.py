@@ -41,18 +41,20 @@ class FindContour(object):
         mask = np.where(label_images == max_label, 0, 1)
         contours, _ = cv2.findContours(mask.astype(
             np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for cont in contours:
-            print(cont)
+        # for cont in contours:
+        #     print(cont)
         contours = [cnt for cnt in contours if
                     cv2.contourArea(cnt) > 20000 and not np.all(cnt[..., 1] <= (self.h / 2 + 30))]
         mid_dis = self.calculate_dis(contours, self.center_point)
         mid_dis.sort(key=lambda x: x[1])
+        
         assert len(mid_dis) > 0
         center_contour = contours[mid_dis[0][0]]
         M = cv2.moments(center_contour)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
-        contours = [cnt for cnt in contours if not np.any(np.abs(cnt[..., 1] - cY) < 20)]
+        contours = [cnt for cnt in contours if not np.any(
+            np.abs(cnt[..., 1] - cY) < 20)]
         result = self.calculate_dis(contours, (cX, cY))
         result.sort(key=lambda x: x[1])
         find_topk = []
@@ -121,8 +123,10 @@ class FindContour(object):
 
     def draw_doji(self, length=50):
         cx, cy = self.center_point
-        cv2.line(self.image, (cx - length, cy), (cx + length, cy), (0, 0, 255), 2)
-        cv2.line(self.image, (cx, cy - length), (cx, cy + length), (0, 0, 255), 2)
+        cv2.line(self.image, (cx - length, cy),
+                 (cx + length, cy), (0, 0, 255), 2)
+        cv2.line(self.image, (cx, cy - length),
+                 (cx, cy + length), (0, 0, 255), 2)
 
 
 if __name__ == '__main__':
@@ -132,4 +136,4 @@ if __name__ == '__main__':
         findcontours = FindContour(image, 2, True, True)
         plt.imshow(cv2.cvtColor(findcontours.image, cv2.COLOR_BGR2RGB))
         plt.show()
-        print(" ")
+        # print(" ")
