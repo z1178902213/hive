@@ -7,7 +7,8 @@ from scipy.ndimage import label
 
 
 class FindContour(object):
-    def __init__(self, image: np.array, topk: int, draw_contour: bool = False, draw_circle: bool = False):
+    def __init__(self, image: np.array, topk: int, draw_contour: bool = False, draw_circle: bool = False,
+                 is_draw_doji: bool = True):
         """
         :param image:  open_cv读取的图像，np.array
         :param topk:   需要找到的下半部分中离中点最近的框的个数
@@ -18,7 +19,7 @@ class FindContour(object):
         h, w, _ = image.shape
         self.h, self.w = h, w
         # self.mid_point = np.array([h // 2, w // 2])
-        self.mid_point = np.array([w // 2, h // 2])
+        self.center_point = np.array([w // 2, h // 2])
         self.gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary_image = cv2.threshold(image, 172, 255, cv2.THRESH_BINARY)
         self.binary_image = cv2.cvtColor(binary_image, cv2.COLOR_BGR2GRAY)
@@ -28,6 +29,8 @@ class FindContour(object):
                 self.topk_cont, draw_circle)
         else:
             self.standard1, self.standard2 = 0, 0
+        if is_draw_doji:
+            self.draw_doji()
 
     def find_contours(self, topk, draw=False):
         threshold_binary = np.where(self.gray > 215, 1, 0)
@@ -38,30 +41,39 @@ class FindContour(object):
         mask = np.where(label_images == max_label, 0, 1)
         contours, _ = cv2.findContours(mask.astype(
             np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 20000]
-        # and not np.any(cnt[0][:, 1] <= self.h / 2)]
-        result = []
-        for i, contour in enumerate(contours):
-            M = cv2.moments(contour)
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-            if cY <= (self.h / 2 + 100):
-                continue
-            distance = np.sqrt((cX - self.mid_point[0]) ** 2 + (cY - self.mid_point[1]) ** 2)
-            result.append((i, distance))
-        if len(result) < 2:
-            return []
-        # if draw:
-        #     for cnt in contours:
-        #         cv2.drawContours(self.image, cnt, -1, (0, 255, 0), 2)
+        for cont in contours:
+            print(cont)
+        contours = [cnt for cnt in contours if
+                    cv2.contourArea(cnt) > 20000 and not np.all(cnt[..., 1] <= (self.h / 2 + 30))]
+        mid_dis = self.calculate_dis(contours, self.center_point)
+        mid_dis.sort(key=lambda x: x[1])
+        assert len(mid_dis) > 0
+        center_contour = contours[mid_dis[0][0]]
+        M = cv2.moments(center_contour)
+        cX = int(M["m10"] / M["m00"])
+        cY = int(M["m01"] / M["m00"])
+        contours = [cnt for cnt in contours if not np.any(np.abs(cnt[..., 1] - cY) < 20)]
+        result = self.calculate_dis(contours, (cX, cY))
         result.sort(key=lambda x: x[1])
         find_topk = []
+        assert len(result) > topk
         for i in range(topk):
             find_topk.append(contours[result[i][0]])
         if draw:
             for cnt in find_topk:
                 cv2.drawContours(self.image, cnt, -1, (0, 255, 0), 2)
         return find_topk
+
+    def calculate_dis(self, contours, point, X=1, Y=1):
+        pX, pY = point
+        result = []
+        for i, contour in enumerate(contours):
+            M = cv2.moments(contour)
+            cX = int(M["m10"] / M["m00"])
+            cY = int(M["m01"] / M["m00"])
+            distance = np.sqrt(X * (cX - pX) ** 2 + Y * (cY - pY) ** 2)
+            result.append((i, distance))
+        return result
 
     def inscribed_circle(self, cont: np.array):
         M = cv2.moments(cont)
@@ -106,6 +118,11 @@ class FindContour(object):
             if all_points_inside:
                 result = True
         return result
+
+    def draw_doji(self, length=50):
+        cx, cy = self.center_point
+        cv2.line(self.image, (cx - length, cy), (cx + length, cy), (0, 0, 255), 2)
+        cv2.line(self.image, (cx, cy - length), (cx, cy + length), (0, 0, 255), 2)
 
 
 if __name__ == '__main__':
