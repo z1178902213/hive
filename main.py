@@ -152,7 +152,7 @@ if __name__ == '__main__':
         # 读取图片
         image = cv2.imread(SOURCE)
         my_find = FindContour(image, 2, True, False)
-        if my_find.standard2 == 0:
+        if my_find.standard2 <= 0:
             continue
         if not os.path.exists(OUTPUTS_ROOT):
             os.makedirs(OUTPUTS_ROOT)
