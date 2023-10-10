@@ -22,7 +22,7 @@ SHOW_CUT_IMAGE = False
 SHOW_FAST_CUT_IMAGE = False
 DRAW_KEYPOINTS = False
 IMAGES_ROOT = './all_images'
-OUTPUTS_ROOT = IMAGES_ROOT + '_outputs'
+OUTPUTS_ROOT = IMAGES_ROOT + '_outputs2'
 RESHAPE_RATIO = 3       # 在进行角点检测的时候所进行的放大比例
 
 
@@ -174,8 +174,10 @@ if __name__ == '__main__':
                     if my_find.in_contour(xyxy):
                         draw_circle(image, circle, my_find.standard2,
                                     (int(xyxy[0]), int(xyxy[1])), thickness=2)
+                        h, w, c = image.shape
+                        text_scale = ((h/1080)+(w/1920))/2
                         cv2.putText(image, f'{(circle[2] * 2 / my_find.standard2):.2f}mm', (int(
-                            xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
+                            xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (0, 0, 255), 2)
                 except Exception as e:
                     print(f'未知错误{e}，跳过该box')
                     continue
