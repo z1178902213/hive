@@ -22,7 +22,7 @@ SHOW_CUT_IMAGE = False
 SHOW_FAST_CUT_IMAGE = False
 DRAW_KEYPOINTS = False
 IMAGES_ROOT = './all_images'
-OUTPUTS_ROOT = IMAGES_ROOT + '_outputs2'
+OUTPUTS_ROOT = IMAGES_ROOT + '_outputs3'
 RESHAPE_RATIO = 3       # 在进行角点检测的时候所进行的放大比例
 
 
@@ -151,7 +151,9 @@ if __name__ == '__main__':
         boxes_list = yolov5_run(**vars(opt))
         # 读取图片
         image = cv2.imread(SOURCE)
-        my_find = FindContour(image, 2, True, False)
+        h, w, c = image.shape
+        my_find = FindContour(image, 2, True, False,
+                              doji_len=int((((h/1080)+(w/1920))/2) * 30))
         if my_find.standard2 <= 0:
             continue
         if not os.path.exists(OUTPUTS_ROOT):
@@ -174,7 +176,6 @@ if __name__ == '__main__':
                     if my_find.in_contour(xyxy):
                         draw_circle(image, circle, my_find.standard2,
                                     (int(xyxy[0]), int(xyxy[1])), thickness=2)
-                        h, w, c = image.shape
                         text_scale = ((h/1080)+(w/1920))/2
                         cv2.putText(image, f'{(circle[2] * 2 / my_find.standard2):.2f}mm', (int(
                             xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (0, 0, 255), 2)
