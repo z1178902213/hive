@@ -8,7 +8,7 @@ from scipy.ndimage import label
 
 class FindContour(object):
     def __init__(self, image: np.array, topk: int, draw_contour: bool = False, draw_circle: bool = False,
-                 is_draw_doji: bool = True, doji_len: int = 50):
+                 is_draw_doji: bool = True, doji_len: int = 10):
         """
         :param image:  open_cv读取的图像，np.array
         :param topk:   需要找到的下半部分中离中点最近的框的个数
@@ -23,14 +23,15 @@ class FindContour(object):
         self.gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         _, binary_image = cv2.threshold(image, 172, 255, cv2.THRESH_BINARY)
         self.binary_image = cv2.cvtColor(binary_image, cv2.COLOR_BGR2GRAY)
+        self.is_draw_doji = is_draw_doji
+        self.draw_doji_len = doji_len
         self.topk_cont = self.find_contours(topk, draw_contour)
         if len(self.topk_cont) >= 2:
             self.standard1, self.standard2 = self.calculate_standard(
                 self.topk_cont, draw_circle)
         else:
             self.standard1, self.standard2 = 0, 0
-        if is_draw_doji:
-            self.draw_doji(doji_len)
+
 
     def find_contours(self, topk, draw=False):
         threshold_binary = np.where(self.gray > 215, 1, 0)
@@ -42,7 +43,7 @@ class FindContour(object):
         contours, _ = cv2.findContours(mask.astype(
             np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = [cnt for cnt in contours if
-                    cv2.contourArea(cnt) > 2000 and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
+                    cv2.contourArea(cnt) > 2000 ] #and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
         mid_dis = self.calculate_dis(contours, self.center_point)
         mid_dis.sort(key=lambda x: x[1])
         if len(mid_dis) == 0:
@@ -51,7 +52,9 @@ class FindContour(object):
         M = cv2.moments(center_contour)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
-        contours = [cnt for cnt in contours if not np.any(np.abs(cnt[..., 1] - cY) < 20)]
+        if self.is_draw_doji:
+            self.draw_doji((cX, cY), self.draw_doji_len)
+        contours = [cnt for cnt in contours if not np.any(np.abs(cnt[..., 1] - cY) < 20) and not np.all(cnt[..., 1] <= cY)]
         result = self.calculate_dis(contours, (cX, cY))
         result.sort(key=lambda x: x[1])
         find_topk = []
@@ -119,14 +122,14 @@ class FindContour(object):
                 result = True
         return result
 
-    def draw_doji(self, length=50):
-        cx, cy = self.center_point
+    def draw_doji(self, center_point, length=50):
+        cx, cy = center_point
         cv2.line(self.image, (cx - length, cy), (cx + length, cy), (0, 0, 255), 2)
         cv2.line(self.image, (cx, cy - length), (cx, cy + length), (0, 0, 255), 2)
 
 
 if __name__ == '__main__':
-    for img in [img for img in os.listdir('../imgs') if img.endswith('2023_09_15_10_36_26.jpg')]:
+    for img in [img for img in os.listdir('../imgs') if img.endswith('.jpg')]:
         img_name = os.path.splitext(img)[0]
         image = cv2.imread('../imgs/{}'.format(img), cv2.THRESH_BINARY_INV)
         findcontours = FindContour(image, 2, True, True)
