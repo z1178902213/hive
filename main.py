@@ -7,23 +7,15 @@
 import time
 
 # 全局变量
+RKNN_MODEL = "worm.rknn"
 BOX_THRESH = 0.5
-CLASSES = "worm"
-DATA = ".\\bee_children_v1\\data.yaml"
-DRAW_KEYPOINTS = False
-IMAGE_FOLDER = "./all_images"
-IMGSZ = (640, 640)
-IMG_PATH = "./test.jpg"
+NMS_THRESH = 0.0
 IMG_SIZE = 640
-NMS_THRESH = 0.45
+RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
+IMAGE_FOLDER = "./all_images"
 OUTPUTS_ROOT = IMAGE_FOLDER + "_outputs"
 PROBLEM_ROOT = "./problems"
-RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
-RKNN_MODEL = "worm.rknn"
-SHOW_CUT_IMAGE = False
-SHOW_FAST_CUT_IMAGE = False
-SOURCE = ".\\1.jpg"
-WEIGHTS = ".\\worm.pt"
+CLASSES = "worm"
 
 
 # 创建一个时钟类，用来计时
@@ -356,7 +348,9 @@ def fit_circle(key_points):
     return result.x
 
 
-def draw_circle(img, circle_params, standard, offsets, thickness=10):
+def draw_circle(
+    img, circle_params, standard, offsets, thickness=10, draw_keypoints=False
+):
     a, b, r = circle_params
     offset_x, offset_y = offsets
     # 生成一组用于绘制圆的角度值
@@ -371,7 +365,7 @@ def draw_circle(img, circle_params, standard, offsets, thickness=10):
     # 绘制原始图像
     draw_color = (0, 255, 0) if (r / 3 * 2 / standard < 2.5) else (0, 0, 255)
 
-    if DRAW_KEYPOINTS:
+    if draw_keypoints:
         for point in zip(x_values, y_values):
             cv2.circle(img, (point[0], point[1]), 3, (0, 0, 255), -1)  # 标记原始散点
 
@@ -435,10 +429,10 @@ if __name__ == "__main__":
     worm_inside_num = 0
     images = os.listdir(IMAGE_FOLDER)
     for image_name in images:
-        print(f"--> 处理图像{SOURCE}...", end="")
         SOURCE = f"{IMAGE_FOLDER}/{image_name}"
+        print(f"--> 处理图像{SOURCE}...", end="")
         save_dir = f'{OUTPUTS_ROOT}/{image_name.split(".")[0]}_detect.jpg'
-        
+
         img = cv2.imread(SOURCE)
         h, w, c = img.shape  # 保存图像的高、宽、通道数
 
@@ -460,7 +454,13 @@ if __name__ == "__main__":
             np.transpose(outputs[2].reshape([3, 20, 20, 6]), (1, 2, 0, 3))
         )
         boxes, classes, scores = yolov5_post_process(input_data)
-        boxes = box_resume(boxes, ratio, (dw, dh))
+        if boxes is not None:
+            boxes = box_resume(boxes, ratio, (dw, dh))
+        else:
+            problem_dir = f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_nobox_problem.jpg'
+            cv2.imwrite(problem_dir, img)
+            print(f"没有检测到幼虫，跳过该图片")
+            continue
         worm_num += len(boxes)
 
         # 实例化六边形框检测对象
@@ -468,7 +468,9 @@ if __name__ == "__main__":
             img, 2, True, False, doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30)
         )
         if my_find.standard2 <= 0:
-            problem_dir = f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_standard2_problem.jpg'
+            problem_dir = (
+                f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_standard2_problem.jpg'
+            )
             cv2.imwrite(problem_dir, img)
             print(f"my_find.standard2 <= 0，跳过该图片")
             continue
@@ -500,9 +502,11 @@ if __name__ == "__main__":
                         2,
                     )
             except Exception as e:
-                problem_dir = f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_unknow_problem.jpg'
+                problem_dir = (
+                    f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_unknown_problem.jpg'
+                )
                 cv2.imwrite(problem_dir, img)
-                print(f"未知错误，保存该图片在{problem_dir}，跳过该图片，{e}")
+                print(f"未知错误，保存该图片在{problem_dir}，跳过该图片")
                 continue
         cv2.imwrite(save_dir, img)
         clock.print_time(f"处理完成")
