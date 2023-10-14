@@ -194,7 +194,6 @@ def draw(image, boxes, scores, classes, ratio, padding):
     """
     for box, score, cl in zip(boxes, scores, classes):
         left, top, right, bottom = box
-        print(box)
         left = (left - padding[0]) / ratio[0]
         right = (right - padding[0]) / ratio[0]
         top = (top - padding[1]) / ratio[0]
