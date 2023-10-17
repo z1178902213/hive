@@ -18,6 +18,7 @@ import warnings
 from tools.arm_control import Arm
 from tools.yolo_process import *
 from tools.find_worm import *
+import time
 
 clock.print_time("--> 加载依赖文件完成")
 
@@ -64,10 +65,10 @@ if __name__ == "__main__":
     val_clock = Clock()
     left_cap = cv2.VideoCapture(CAMERA_LEFT)
     left_arm = Arm(89, 81)
+    count = 0
     while flag:
-        while not left_arm.receive_signal():
+        if left_arm.receive_signal():
             ret, frame = left_cap.read()
-            count = 0
             if ret:
                 count += 1
                 print(f"--> 处理第{count}帧...", end="")
@@ -158,6 +159,9 @@ if __name__ == "__main__":
                 ret, frame = left_cap.read()
             else:
                 print("--> 未获取到视频帧，请检查摄像头是否插好")
+        else:
+            print('--> 等待机械臂信号...')
+            time.sleep(2)
     val_clock.cal_interval_time()
     print(
         f"\n--> 一共处理了{count}帧图像\n耗时{val_clock.interval_time:.2f}s\n平均一秒处理{count / val_clock.interval_time:.2f}帧图像"
