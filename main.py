@@ -46,20 +46,9 @@ def run():
     if not os.path.exists(PROBLEM_ROOT):
         os.makedirs(PROBLEM_ROOT)
 
-    print("--> step1: 加载RKNN模型...")
-    rknn = RKNN()
-    ret = rknn.load_rknn(RKNN_MODEL)
-    if ret != 0:
-        print("--> 加载模型失败，程序终止")
-        exit(ret)
-    clock.print_time("--> 加载模型成功")
-
-    print("--> step2: 初始化RKNN运行环境...")
-    ret = rknn.init_runtime()
-    if ret != 0:
-        print("--> 初始化RKNN运行环境失败，程序终止")
-        exit(ret)
-    clock.print_time("--> 初始化RKNN运行环境成功")
+    print("--> step1: 初始化RKNN环境...")
+    rk_yolo = RK_YOLO(RKNN_MODEL)
+    clock.print_time("--> 初始化RKNN环境成功")
 
     print("--> step3: 读取摄像头并进行识别...")
     val_clock = Clock()
@@ -82,23 +71,10 @@ def run():
                 frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
                 frame_rgb = cv2.resize(frame_rgb, (IMG_SIZE, IMG_SIZE))
 
-                outputs = rknn.inference(inputs=[frame_rgb])
-                input_data = list()
-                input_data.append(
-                    np.transpose(outputs[0].reshape([3, 80, 80, 6]), (1, 2, 0, 3))
+                boxes, classes, scores = rk_yolo.detect(
+                    frame_rgb, IMG_SIZE, BOX_THRESH, NMS_THRESH
                 )
-                input_data.append(
-                    np.transpose(outputs[1].reshape([3, 40, 40, 6]), (1, 2, 0, 3))
-                )
-                input_data.append(
-                    np.transpose(outputs[2].reshape([3, 20, 20, 6]), (1, 2, 0, 3))
-                )
-                boxes, classes, scores = yolov5_post_process(
-                    input_data,
-                    image_size=IMG_SIZE,
-                    box_thresh=BOX_THRESH,
-                    nms_thresh=NMS_THRESH,
-                )
+
                 if boxes is not None:
                     boxes = box_resume(boxes, ratio, (dw, dh))
                 else:
@@ -121,17 +97,16 @@ def run():
                     print(f"my_find.standard2 <= 0，跳过该帧")
                     continue
                 # 对所有检测框进行判断
-                for index, xyxy in enumerate(boxes):
+                for xyxy in boxes:
                     cut_image = frame[
                         int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
                     ]
-                    cut_image_h, cut_image_w, cut_image_c = cut_image.shape
                     try:
                         fast_keypoints = fast_ratio(cut_image, RESHAPE_RATIO)
                         circle = fit_circle(fast_keypoints)
                         # 为中心下方的两个六边形绘制圆与标签
                         if my_find.in_contour(xyxy):
-                            left_arm.act(True)
+                            # left_arm.act(True)
                             draw_circle(
                                 frame,
                                 circle,

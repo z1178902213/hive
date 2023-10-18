@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from rknn.api import RKNN
 
 
 def sigmoid(x):
@@ -196,3 +197,36 @@ def box_resume(boxes, ratio, padding):
         bottom = int(bottom)
         ret.append((left, top, right, bottom))
     return ret
+
+
+class RK_YOLO:
+    def __init__(self, model):
+        self.rknn = RKNN()
+        ret = self.rknn.load_rknn(model)
+        if ret != 0:
+            print("--> 加载模型失败，程序终止")
+            exit(ret)
+        ret = self.rknn.init_runtime()
+        if ret != 0:
+            print("--> 初始化RKNN运行环境失败，程序终止")
+            exit(ret)
+
+    def detect(self, image, imgsz, box_thresh, nms_thresh):
+        outputs = self.rknn.inference(inputs=[image])
+        input_data = list()
+        input_data.append(
+            np.transpose(outputs[0].reshape([3, 80, 80, 6]), (1, 2, 0, 3))
+        )
+        input_data.append(
+            np.transpose(outputs[1].reshape([3, 40, 40, 6]), (1, 2, 0, 3))
+        )
+        input_data.append(
+            np.transpose(outputs[2].reshape([3, 20, 20, 6]), (1, 2, 0, 3))
+        )
+        boxes, classes, scores = yolov5_post_process(
+            input_data,
+            image_size=imgsz,
+            box_thresh=box_thresh,
+            nms_thresh=nms_thresh,
+        )
+        return boxes, classes, scores
