@@ -4,7 +4,7 @@
 @Author   : 张伟杰
 @Func     : 使用RKNN模型检测双摄像头获取到的图像，并收发GPIO信号
 """
-from tools.clock import Clock
+from tools.universe import Clock
 
 clock = Clock()
 
@@ -38,9 +38,9 @@ CLASSES = "worm"
 SAVE_IMG = True
 
 
-if __name__ == "__main__":
+def run():
     flag = True
-    # 创建运行日志文件夹
+    # 创建输出文件夹
     if not os.path.exists(OUTPUTS_ROOT):
         os.makedirs(OUTPUTS_ROOT)
     if not os.path.exists(PROBLEM_ROOT):
@@ -64,7 +64,8 @@ if __name__ == "__main__":
     print("--> step3: 读取摄像头并进行识别...")
     val_clock = Clock()
     left_cap = cv2.VideoCapture(CAMERA_LEFT)
-    left_arm = Arm(89, 81)
+    left_arm = Arm(73, 74, 89)
+    right_arm = Arm(83, 85, 84)
     count = 0
     while flag:
         if left_arm.receive_signal():
@@ -160,9 +161,13 @@ if __name__ == "__main__":
             else:
                 print("--> 未获取到视频帧，请检查摄像头是否插好")
         else:
-            print('--> 等待机械臂信号...')
+            print("--> 等待机械臂信号...")
             time.sleep(2)
     val_clock.cal_interval_time()
     print(
         f"\n--> 一共处理了{count}帧图像\n耗时{val_clock.interval_time:.2f}s\n平均一秒处理{count / val_clock.interval_time:.2f}帧图像"
     )
+
+
+if __name__ == "__main__":
+    run()

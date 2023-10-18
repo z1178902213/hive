@@ -3,12 +3,13 @@ import time
 
 
 class Arm:
-    def __init__(self, input=89, output=81):
+    def __init__(self, input, output0, output1):
         """
-        初始化GPIO输入输出状态
+        初始化GPIO
         """
         self.gpio_in = GPIO(input, "in")
-        self.gpio_out = GPIO(output, "out")
+        self.gpio_out0 = GPIO(output0, "out")
+        self.gpio_out1 = GPIO(output1, "out")
 
     def act(self, left=True):
         """

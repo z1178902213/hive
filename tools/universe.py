@@ -1,4 +1,19 @@
+import cv2
 import time
+
+
+def find_and_check_cameras():
+    # 设置cv日志等级，忽视烦人的WARNING和ERROR
+    log_level = cv2.getLogLevel()
+    cv2.setLogLevel(0)
+    ok_list = []
+    for i in range(0, 20):  # 遍历摄像头编号，找到能用的双目摄像头
+        cap = cv2.VideoCapture(i)
+        ret, _ = cap.read()
+        if ret:
+            ok_list.append(i)
+    cv2.setLogLevel(log_level)  # 恢复日志等级
+    return ok_list
 
 
 # 创建一个时钟类，用来计时
