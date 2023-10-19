@@ -1,186 +1,173 @@
 """
-@File     : test.py
-@Time     : 2023/9/24 21:01
+@File     : main.py
+@Time     : 2023/10/17 16:08
 @Author   : 张伟杰
-@Func     :
+@Func     : 使用RKNN模型检测双摄像头获取到的图像，并收发GPIO信号
 """
-import os
+from tools.universe import Clock
 
+clock = Clock()
+
+print("--> step0: 加载依赖文件...")
+import os
 import cv2
 import numpy as np
-from scipy.optimize import least_squares
-from detect import parse_opt as yolov5_parse_opt
-from detect import run as yolov5_run
-from modules.find_contour import FindContour
+from tools.find_contour import FindContour
+from rknn.api import RKNN
+import warnings
+from tools.arm_control import Arm
+from tools.yolo_process import *
+from tools.find_worm import *
+import time
 
-# 定义拟合的曲线函数
-WEIGHTS = '.\\worm.pt'
-SOURCE = '.\\1.jpg'
-IMGSZ = (640, 640)
-DATA = '.\\bee_children_v1\\data.yaml'
-SHOW_CUT_IMAGE = False
-SHOW_FAST_CUT_IMAGE = False
-DRAW_KEYPOINTS = False
-IMAGES_ROOT = './all_images'
-OUTPUTS_ROOT = IMAGES_ROOT + '_outputs3'
-RESHAPE_RATIO = 3       # 在进行角点检测的时候所进行的放大比例
+clock.print_time("--> 加载依赖文件完成")
 
+# 关闭烦人的tensorflow的FutureWarning
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
-def cone_curve(x, a, b, c):
-    """
-    二维圆锥曲线，用于拟合一个圆
-
-    Arguments:
-        x {float} -- 输入的点的坐标
-        a {float} -- 圆的参数a
-        b {float} -- 圆的参数b
-        c {float} -- 圆的参数c
-
-    Returns:
-        float -- 圆的坐标对应参数的值
-    """
-    return a * x ** 2 + b * x + c
+# 全局变量
+RKNN_MODEL = "worm.rknn"
+BOX_THRESH = 0.5
+NMS_THRESH = 0.0
+IMG_SIZE = 640
+RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
+CAMERA_LEFT = "./test.mp4"  # 视频源，或者说是摄像头
+OUTPUTS_ROOT = "camera_outputs"
+PROBLEM_ROOT = "./problems"
+CLASSES = "worm"
+SAVE_IMG = True
 
 
-def circle_residuals(params, x, y):
-    """
-    对圆进行拟合的优化函数
+def run():
+    flag = True
+    # 创建输出文件夹
+    if not os.path.exists(OUTPUTS_ROOT):
+        os.makedirs(OUTPUTS_ROOT)
+    if not os.path.exists(PROBLEM_ROOT):
+        os.makedirs(PROBLEM_ROOT)
 
-    Arguments:
-        params {float} -- 包含圆心坐标(a, b)和半径r
-        x {float} -- x的值
-        y {float} -- y的值
+    print("--> step1: 加载RKNN模型...")
+    rknn = RKNN()
+    ret = rknn.load_rknn(RKNN_MODEL)
+    if ret != 0:
+        print("--> 加载模型失败，程序终止")
+        exit(ret)
+    clock.print_time("--> 加载模型成功")
 
-    Returns:
-        float -- 预测的圆的半径与实际半径的差值
-    """
-    # params 包含圆心坐标 (a, b) 和半径 r
-    a, b, r = params
-    return np.sqrt((x - a) ** 2 + (y - b) ** 2) - r
+    print("--> step2: 初始化RKNN运行环境...")
+    ret = rknn.init_runtime()
+    if ret != 0:
+        print("--> 初始化RKNN运行环境失败，程序终止")
+        exit(ret)
+    clock.print_time("--> 初始化RKNN运行环境成功")
 
+    print("--> step3: 读取摄像头并进行识别...")
+    val_clock = Clock()
+    left_cap = cv2.VideoCapture(CAMERA_LEFT)
+    left_arm = Arm(73, 74, 89)
+    right_arm = Arm(83, 85, 84)
+    count = 0
+    while flag:
+        if left_arm.receive_signal():
+            ret, frame = left_cap.read()
+            if ret:
+                count += 1
+                print(f"--> 处理第{count}帧...", end="")
+                save_dir = f"{OUTPUTS_ROOT}/{count}_detect.jpg"
+                h, w, c = frame.shape  # 保存帧的高、宽、通道数
 
-def fast_ratio(image, ratio):
-    """
-    对图像按比例放大后进行角点检测，返回关键点坐标
+                frame_letterbox, ratio, (dw, dh) = letterbox(
+                    frame.copy(), new_shape=(IMG_SIZE, IMG_SIZE)
+                )
+                frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
+                frame_rgb = cv2.resize(frame_rgb, (IMG_SIZE, IMG_SIZE))
 
-    Arguments:
-        image {ndarray} -- 图像数据
-
-    Returns:
-        list -- 检测的fast角点关键点的坐标
-    """
-    h, w, _ = image.shape
-    img = cv2.resize(image.copy(), (w * ratio, h * ratio))
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-    # 进行 FAST 角点检测
-    fast_detect = cv2.FastFeatureDetector_create(
-        threshold=10, nonmaxSuppression=True)
-    key_points = fast_detect.detect(gray, None)
-    resume_points = []
-
-    # 将比例进行缩放
-    for keypoint in key_points:
-        x, y = keypoint.pt[0] / ratio, keypoint.pt[1] / ratio
-        resume_points.append((x, y))
-    return resume_points
-
-
-def fit_circle(key_points):
-    x_data = []
-    y_data = []
-    # 获取所有的角点
-    for keypoint in key_points:
-        x, y = keypoint
-        x_data.append(x)
-        y_data.append(y)
-    x_data = np.array(x_data)
-    y_data = np.array(y_data)
-    initial_a = np.mean(x_data)
-    initial_b = np.mean(y_data)
-    distances = np.sqrt((x_data - initial_a) ** 2 + (y_data - initial_b) ** 2)
-    initial_r = np.mean(distances)
-    # 初始化拟合参数（圆心坐标和半径）
-    initial_params = [initial_a, initial_b, initial_r]  # 用你的估计值替换这些参数
-    # 利用least_squares函数拟合圆
-    result = least_squares(
-        circle_residuals, initial_params, args=(x_data, y_data))
-
-    # 返回拟合结果
-    return result.x
-
-
-def draw_circle(img, circle_params, standard, offsets, thickness=10):
-    a, b, r = circle_params
-    offset_x, offset_y = offsets
-    # 生成一组用于绘制圆的角度值
-    theta = np.linspace(0, 2 * np.pi, 100)
-    x_values = a + r * np.cos(theta) + offset_x
-    y_values = b + r * np.sin(theta) + offset_y
-
-    # 将坐标变为整数
-    x_values = x_values.astype(int)
-    y_values = y_values.astype(int)
-
-    # 绘制原始图像
-    draw_color = (0, 255, 0) if (r / 3 * 2 / standard < 2.5) else (0, 0, 255)
-
-    if DRAW_KEYPOINTS:
-        for point in zip(x_values, y_values):
-            cv2.circle(img, (point[0], point[1]), 3, (0, 0, 255), -1)  # 标记原始散点
-
-    # 绘制拟合的曲线
-    for i in range(len(x_values) - 1):
-        cv2.line(img, (x_values[i], y_values[i]),
-                 (x_values[i + 1], y_values[i + 1]), draw_color, thickness)
-
-    return img, int(r / 3)
-
-
-if __name__ == '__main__':
-    images = os.listdir(IMAGES_ROOT)
-    for image_name in images:
-        SOURCE = f'{IMAGES_ROOT}/{image_name}'
-        # 配置YOLOv5检测的参数
-        opt = yolov5_parse_opt()
-        opt.weights = WEIGHTS
-        opt.source = SOURCE
-        opt.imgsz = IMGSZ
-        opt.data = DATA
-        opt.save_txt = True
-        boxes_list = yolov5_run(**vars(opt))
-        # 读取图片
-        image = cv2.imread(SOURCE)
-        h, w, c = image.shape
-        my_find = FindContour(image, 2, True, False,
-                              doji_len=int((((h/1080)+(w/1920))/2) * 30))
-        if my_find.standard2 <= 0:
-            continue
-        if not os.path.exists(OUTPUTS_ROOT):
-            os.makedirs(OUTPUTS_ROOT)
-        # 对所有检测框进行判断
-        for box_list in boxes_list:
-            for index, box in enumerate(box_list):
-                xyxy, conf = box
-                cut_image = image[int(xyxy[1]):int(
-                    xyxy[3]), int(xyxy[0]):int(xyxy[2])]
-                cut_image_h, cut_image_w, cut_image_c = cut_image.shape
-                if SHOW_CUT_IMAGE:
-                    cv2.imwrite(
-                        f'{OUTPUTS_ROOT}/{SOURCE.split(".")[1]}_cut_{index}.jpg', cut_image)
-                try:
-                    fast_keypoints = fast_ratio(
-                        cut_image, RESHAPE_RATIO)
-                    circle = fit_circle(fast_keypoints)
-                    # 为中心下方的两个六边形绘制圆与标签
-                    if my_find.in_contour(xyxy):
-                        draw_circle(image, circle, my_find.standard2,
-                                    (int(xyxy[0]), int(xyxy[1])), thickness=2)
-                        text_scale = ((h/1080)+(w/1920))/2
-                        cv2.putText(image, f'{(circle[2] * 2 / my_find.standard2):.2f}mm', (int(
-                            xyxy[0]), int(xyxy[1])), cv2.FONT_HERSHEY_SIMPLEX, text_scale, (0, 0, 255), 2)
-                except Exception as e:
-                    print(f'未知错误{e}，跳过该box')
+                outputs = rknn.inference(inputs=[frame_rgb])
+                input_data = list()
+                input_data.append(
+                    np.transpose(outputs[0].reshape([3, 80, 80, 6]), (1, 2, 0, 3))
+                )
+                input_data.append(
+                    np.transpose(outputs[1].reshape([3, 40, 40, 6]), (1, 2, 0, 3))
+                )
+                input_data.append(
+                    np.transpose(outputs[2].reshape([3, 20, 20, 6]), (1, 2, 0, 3))
+                )
+                boxes, classes, scores = yolov5_post_process(
+                    input_data,
+                    image_size=IMG_SIZE,
+                    box_thresh=BOX_THRESH,
+                    nms_thresh=NMS_THRESH,
+                )
+                if boxes is not None:
+                    boxes = box_resume(boxes, ratio, (dw, dh))
+                else:
+                    problem_dir = f"{PROBLEM_ROOT}/{count}_nobox_problem.jpg"
+                    cv2.imwrite(problem_dir, frame)
+                    print(f"没有检测到幼虫，跳过该帧")
                     continue
-            cv2.imwrite(
-                f'{OUTPUTS_ROOT}/{image_name.split(".")[0]}_detect.jpg', image)
+
+                # 实例化六边形框检测对象
+                my_find = FindContour(
+                    frame,
+                    2,
+                    True,
+                    False,
+                    doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
+                )
+                if my_find.standard2 <= 0:
+                    problem_dir = f"{PROBLEM_ROOT}/{count}_standard2_problem.jpg"
+                    cv2.imwrite(problem_dir, frame)
+                    print(f"my_find.standard2 <= 0，跳过该帧")
+                    continue
+                # 对所有检测框进行判断
+                for index, xyxy in enumerate(boxes):
+                    cut_image = frame[
+                        int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
+                    ]
+                    cut_image_h, cut_image_w, cut_image_c = cut_image.shape
+                    try:
+                        fast_keypoints = fast_ratio(cut_image, RESHAPE_RATIO)
+                        circle = fit_circle(fast_keypoints)
+                        # 为中心下方的两个六边形绘制圆与标签
+                        if my_find.in_contour(xyxy):
+                            left_arm.act(True)
+                            draw_circle(
+                                frame,
+                                circle,
+                                my_find.standard2,
+                                (int(xyxy[0]), int(xyxy[1])),
+                                thickness=2,
+                            )
+                            text_scale = ((h / 1080) + (w / 1920)) / 2
+                            cv2.putText(
+                                frame,
+                                f"{(circle[2] * 2 / my_find.standard2):.2f}mm",
+                                (int(xyxy[0]), int(xyxy[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                text_scale,
+                                (0, 0, 255),
+                                2,
+                            )
+                    except Exception as e:
+                        problem_dir = f"{PROBLEM_ROOT}/{count}_unknown_problem.jpg"
+                        cv2.imwrite(problem_dir, frame)
+                        print(f"未知错误，保存该图片在{problem_dir}，跳过该帧")
+                        continue
+                if SAVE_IMG:
+                    cv2.imwrite(save_dir, frame)
+                clock.print_time(f"处理完成")
+                ret, frame = left_cap.read()
+            else:
+                print("--> 未获取到视频帧，请检查摄像头是否插好")
+        else:
+            print("--> 等待机械臂信号...")
+            time.sleep(2)
+    val_clock.cal_interval_time()
+    print(
+        f"\n--> 一共处理了{count}帧图像\n耗时{val_clock.interval_time:.2f}s\n平均一秒处理{count / val_clock.interval_time:.2f}帧图像"
+    )
+
+
+if __name__ == "__main__":
+    run()
