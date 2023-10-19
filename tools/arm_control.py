@@ -36,7 +36,6 @@ class Arm:
             bool -- True为1，False为0
         """
         state = self.gpio_in.read()
-        print(state)
         return state
 
     def close(self):
