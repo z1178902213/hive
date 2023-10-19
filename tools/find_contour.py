@@ -130,7 +130,7 @@ class FindContour(object):
             all_points_inside = all(cv2.pointPolygonTest(
                 cont, pt, False) >= 0 for pt in rect_points)
             if all_points_inside:
-                result = i
+                result = i+1
         return result
 
     def draw_doji(self, center_point, length=50, color=(0, 0, 255)):
