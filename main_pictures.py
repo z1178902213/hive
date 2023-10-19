@@ -1,10 +1,4 @@
-"""
-@File     : main_pictures.py
-@Time     : 2023/9/24 21:01
-@Author   : 张伟杰
-@Func     : 使用rknn模型检测幼虫
-"""
-from tools.clock import Clock
+from tools.common import Clock
 
 clock = Clock()
 
