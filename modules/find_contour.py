@@ -26,15 +26,24 @@ class FindContour(object):
         self.is_draw_doji = is_draw_doji
         self.draw_doji_len = doji_len
         self.topk_cont = self.find_contours(topk, draw_contour)
+        self.draw_doji(self.center_point, self.draw_doji_len, (255, 0, 0))
         if len(self.topk_cont) >= 2:
             self.standard1, self.standard2 = self.calculate_standard(
                 self.topk_cont, draw_circle)
         else:
             self.standard1, self.standard2 = 0, 0
 
-
     def find_contours(self, topk, draw=False):
-        threshold_binary = np.where(self.gray > 215, 1, 0)
+        threshold_binary = np.where(self.gray > 200, 1, 0)
+        self.threshold_binary = threshold_binary * 255
+        self.adaptive_threshold = cv2.adaptiveThreshold(self.gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                                                        cv2.THRESH_BINARY_INV,
+                                                        11, 2)
+        # 进行腐蚀膨胀操作
+        kernel = np.ones((3, 3), np.uint8)
+        dilated = cv2.dilate(self.threshold_binary.astype(np.uint8), kernel, iterations=1)
+        threshold_binary = cv2.erode(self.threshold_binary.astype(np.uint8), kernel, iterations=1)
+
         label_images, nums_image = label(threshold_binary)
         sizes = np.bincount(label_images.ravel())
         sizes[0] = 0
@@ -43,7 +52,7 @@ class FindContour(object):
         contours, _ = cv2.findContours(mask.astype(
             np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         contours = [cnt for cnt in contours if
-                    cv2.contourArea(cnt) > 2000 ] #and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
+                    cv2.contourArea(cnt) > 2000]  # and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
         mid_dis = self.calculate_dis(contours, self.center_point)
         mid_dis.sort(key=lambda x: x[1])
         if len(mid_dis) == 0:
@@ -54,7 +63,8 @@ class FindContour(object):
         cY = int(M["m01"] / M["m00"])
         if self.is_draw_doji:
             self.draw_doji((cX, cY), self.draw_doji_len)
-        contours = [cnt for cnt in contours if not np.any(np.abs(cnt[..., 1] - cY) < 20) and not np.all(cnt[..., 1] <= cY)]
+        contours = [cnt for cnt in contours if
+                    not np.any(np.abs(cnt[..., 1] - cY) < 20) and not np.all(cnt[..., 1] <= cY)]
         result = self.calculate_dis(contours, (cX, cY))
         result.sort(key=lambda x: x[1])
         find_topk = []
@@ -62,6 +72,7 @@ class FindContour(object):
             return []
         for i in range(topk):
             find_topk.append(contours[result[i][0]])
+        find_topk.sort(key=lambda x: np.min(x[0][..., 0]))
         if draw:
             for cnt in find_topk:
                 cv2.drawContours(self.image, cnt, -1, (0, 255, 0), 2)
@@ -82,7 +93,7 @@ class FindContour(object):
         M = cv2.moments(cont)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
-        min_dist = np.min(
+        min_dist = np.average(
             np.sqrt((cont[:, 0, 0] - cX) ** 2 + (cont[:, 0, 1] - cY) ** 2))
         center = (cX, cY)
         return min_dist, center
@@ -114,25 +125,26 @@ class FindContour(object):
         rect_points = [
             ((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2)  # 中心点
         ]
-        result = False
-        for cont in self.topk_cont:
+        result = 0
+        for i, cont in enumerate(self.topk_cont):
             all_points_inside = all(cv2.pointPolygonTest(
                 cont, pt, False) >= 0 for pt in rect_points)
             if all_points_inside:
-                result = True
+                result = i
         return result
 
-    def draw_doji(self, center_point, length=50):
+    def draw_doji(self, center_point, length=50, color=(0, 0, 255)):
         cx, cy = center_point
-        cv2.line(self.image, (cx - length, cy), (cx + length, cy), (0, 0, 255), 2)
-        cv2.line(self.image, (cx, cy - length), (cx, cy + length), (0, 0, 255), 2)
+        cv2.line(self.image, (cx - length, cy), (cx + length, cy), color, 2)
+        cv2.line(self.image, (cx, cy - length), (cx, cy + length), color, 2)
 
 
 if __name__ == '__main__':
     for img in [img for img in os.listdir('../imgs') if img.endswith('.jpg')]:
         img_name = os.path.splitext(img)[0]
         image = cv2.imread('../imgs/{}'.format(img), cv2.THRESH_BINARY_INV)
-        findcontours = FindContour(image, 2, True, True)
+        findcontours = FindContour(image, 2, False, True)
         plt.imshow(cv2.cvtColor(findcontours.image, cv2.COLOR_BGR2RGB))
+        # plt.imshow(findcontours.dilated)
         plt.show()
         print(" ")
