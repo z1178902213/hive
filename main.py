@@ -1,6 +1,7 @@
 from tools.common import Clock, find_and_check_cameras, load_config
+
 clock = Clock()
-from concurrent.futures import ProcessPoolExecutor
+from threading import Thread
 import os
 import cv2
 from tools.find_contour import FindContour
@@ -23,31 +24,60 @@ CLASSES = "worm"
 SAVE_IMG = True
 
 
-def run(param):
-    rk_yolo, camera_id, config = param
-    output_root = config['output_root']
-    problem_root = config['problem_root']
-    
+def run(rk_yolo, camera_id, config):
+    # 解析配置
+    output_root = config["output_root"]
+    problem_root = config["problem_root"]
+    gpio_pin = config["gpio_pin"]
+    gpio_map = config["gpio_map"]
+    gpio_in = gpio_map[str(gpio_pin[0])]
+    gpio_out1 = gpio_map[str(gpio_pin[1])]
+    gpio_out2 = gpio_map[str(gpio_pin[2])]
+    running_mode = config["running_mode"]
+
     # 初始化输出文件夹
     if not os.path.exists(output_root):
         os.makedirs(output_root)
     if not os.path.exists(problem_root):
         os.makedirs(problem_root)
-    
-    running_mode = 1
-    val_clock = Clock()
-    left_cap = cv2.VideoCapture(camera_id)
-    left_arm = Arm(73, 74, 89)
-    right_arm = Arm(83, 85, 84)
+
+    # 初始化摄像头设备
+    cap = cv2.VideoCapture(camera_id)
+
+    # 初始化机械臂
+    arm = Arm(gpio_in,gpio_out1,gpio_out2)
+
+    # 进入主程序逻辑
     count = 0
     is_wait = False
     while True:
-        if running_mode == 0:
-            pass
-        elif running_mode == 1:
-            if left_arm.receive_signal():
+        if running_mode == 0:  # 校准模式
+            ret, frame = cap.read()
+            if ret:
+                h, w, c = frame.shape
+                my_find = FindContour(
+                    frame,
+                    2,
+                    True,
+                    False,
+                    doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
+                )
+                cv2.putText(
+                    frame,
+                    f"GPIO {gpio_pin[0]} {gpio_pin[1]} {gpio_pin[2]}",
+                    (5, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 0, 255),
+                    2,
+                )
+                cv2.imshow(f"{index}", frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+        elif running_mode == 1:  # 识别模式
+            if arm.receive_signal():
                 is_wait = False
-                ret, frame = left_cap.read()
+                ret, frame = cap.read()
                 if ret:
                     count += 1
                     print(f"--> 处理第{count}帧...", end="")
@@ -67,7 +97,7 @@ def run(param):
                     if boxes is not None:
                         boxes = box_resume(boxes, ratio, (dw, dh))
                     else:
-                        problem_dir = f"{PROBLEM_ROOT}/{count}_nobox_problem.jpg"
+                        problem_dir = f"{problem_root}/{count}_nobox_problem.jpg"
                         cv2.imwrite(problem_dir, frame)
                         print(f"没有检测到幼虫，跳过该帧")
                         continue
@@ -81,7 +111,7 @@ def run(param):
                         doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
                     )
                     if my_find.standard2 <= 0:
-                        problem_dir = f"{PROBLEM_ROOT}/{count}_standard2_problem.jpg"
+                        problem_dir = f"{problem_root}/{count}_standard2_problem.jpg"
                         cv2.imwrite(problem_dir, frame)
                         print(f"my_find.standard2 <= 0，跳过该帧")
                         continue
@@ -114,14 +144,14 @@ def run(param):
                                     2,
                                 )
                         except Exception as e:
-                            problem_dir = f"{PROBLEM_ROOT}/{count}_unknown_problem.jpg"
+                            problem_dir = f"{problem_root}/{count}_unknown_problem.jpg"
                             cv2.imwrite(problem_dir, frame)
                             print(f"未知错误，保存该图片在{problem_dir}，跳过该帧")
                             continue
                     if SAVE_IMG:
                         cv2.imwrite(save_dir, frame)
                     clock.print_time(f"处理完成")
-                    ret, frame = left_cap.read()
+                    ret, frame = cap.read()
                 else:
                     print("--> 未获取到视频帧，请检查摄像头是否插好")
             else:
@@ -134,9 +164,9 @@ def run(param):
 
 if __name__ == "__main__":
     double_camera = False
-    
-    print('--> 加载配置')
-    config = load_config('./config.json')  # 加载配置文件
+
+    print("--> 加载配置")
+    config = load_config("./config.json")  # 加载配置文件
 
     # 初始化
     print("--> 初始化RKNN环境...")
@@ -144,11 +174,4 @@ if __name__ == "__main__":
     clock.print_time("--> 初始化RKNN环境成功")
 
     camera_list = find_and_check_cameras()
-    params = []
-    for camera in camera_list:
-        params.append((rk_yolo, camera, config))
-    if double_camera:
-        pool = ProcessPoolExecutor()
-        pool.map(run, params)
-    else:
-        run((params[0]))
+    run(rk_yolo, camera_list, config)

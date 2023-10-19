@@ -19,6 +19,7 @@ def find_and_check_cameras():
         ret, _ = cap.read()
         if ret:
             ok_list.append(i)
+            cap.release()
     cv2.setLogLevel(log_level)  # 恢复日志等级
     return ok_list
 
