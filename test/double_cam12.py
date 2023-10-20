@@ -47,7 +47,7 @@ if __name__ == "__main__":
     camera_list = find_and_check_cameras()
     t_list = []
     print(camera_list)
-    show(1, 11)
+    show(1, 12)
     # for index, c in enumerate(camera_list):
     #     t = Thread(target=show, args=((index, c)))
     #     t_list.append(t)

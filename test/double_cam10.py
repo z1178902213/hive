@@ -28,14 +28,16 @@ def show(index, id):
 def show_double(camera_list):
     cap_list = []
     for camera_id in camera_list:
+        print(f"将{camera_id}加入摄像头列表")
         cap_list.append(cv2.VideoCapture(camera_id))
     index = 0
     while True:
         ret, frame = cap_list[index].read()
         if ret:
-            frame_640 = cv2.resize(frame, (640, 640))
-            cv2.imshow(f"{index}", frame_640)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            # frame_640 = cv2.resize(frame, (640, 640))
+            print(f"显示{index}")
+            cv2.imshow(f"{index}", frame)
+            if cv2.waitKey(0) & 0xFF == ord("q"):
                 break
         else:
             print(f'{camera_list[index]}不能用')
@@ -47,7 +49,7 @@ if __name__ == "__main__":
     camera_list = find_and_check_cameras()
     t_list = []
     print(camera_list)
-    show(0, 10)
+    show_double(camera_list)
     # for index, c in enumerate(camera_list):
     #     t = Thread(target=show, args=((index, c)))
     #     t_list.append(t)
