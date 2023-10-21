@@ -46,21 +46,24 @@ def run(rk_yolo, camera_list, config):
         for index, camera_id in enumerate(camera_list):
             if index == len(gpio_pin):
                 print(f'没有这么多组GPIO，请保持摄像头数量在{len(gpio_pin)}个')
-            roborts.append(Robort(rk_yolo, camera_id, gpio_pin[index], gpio_map))
+            roborts.append(Robort(rk_yolo, camera_id, gpio_pin[index], gpio_map, running_mode))
     else:
-        roborts.append(Robort(rk_yolo, camera_list[0], gpio_pin[0], gpio_map))
+        roborts.append(Robort(rk_yolo, camera_list[0], gpio_pin[0], gpio_map, running_mode))
 
     # 进入主程序逻辑
     while True:
         for index, bot in enumerate(roborts):
             if bot.capture():
                 img = bot.draw()
+                if isinstance(img, tuple):
+                    img, worm_loc = img
+                    bot.catch(worm_loc)
+                cv2.namedWindow(f'{index}', cv2.WINDOW_KEEPRATIO)
                 cv2.imshow(f"{index}", img)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
             else:
                 print('--> 没有捕获到图片...')
-
 
 
 if __name__ == "__main__":

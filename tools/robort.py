@@ -6,17 +6,14 @@ import cv2
 import time
 
 class Robort:
-    def __init__(self, rk_yolo, camera_id, gpio_pin, gpio_map):
+    def __init__(self, rk_yolo, camera_id, gpio_pin, gpio_map, running_mode):
         self.rk_yolo = rk_yolo
         self.gpio_pin = gpio_pin
         self.eye = cv2.VideoCapture(camera_id)
         self.arm = Arm(gpio_pin, gpio_map)
         self.image = None
         self.mode = 0
-        self.circle=False
-        self.doji=True
-        self.center=True
-        self.gpio=True
+        self.change_mode(running_mode)
     
     def change_mode(self, mode):
         """
@@ -70,64 +67,71 @@ class Robort:
                 )
             return self.image
         elif self.mode == 1:
-            h, w, c = self.image.shape  # 保存帧的高、宽、通道数
+            origin = self.image.copy()
+            if self.arm.receive_signal():
+                h, w, c = self.image.shape  # 保存帧的高、宽、通道数
 
-            frame_letterbox, ratio, (dw, dh) = letterbox(
-                self.image.copy(), new_shape=(640, 640)
-            )
-            frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
-            frame_rgb = cv2.resize(frame_rgb, (640, 640))
+                frame_letterbox, ratio, (dw, dh) = letterbox(
+                    self.image.copy(), new_shape=(640, 640)
+                )
+                frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
+                frame_rgb = cv2.resize(frame_rgb, (640, 640))
 
-            boxes, classes, scores = self.rk_yolo.detect(frame_rgb, 640, 0.5, 0)
+                boxes, classes, scores = self.rk_yolo.detect(frame_rgb, 640, 0.5, 0)
 
-            if boxes is not None:
-                boxes = box_resume(boxes, ratio, (dw, dh))
+                if boxes is not None:
+                    boxes = box_resume(boxes, ratio, (dw, dh))
+                else:
+                    print(f"--> 没有检测到幼虫...")
+                    return origin
+
+                # 实例化六边形框检测对象
+                my_find = FindContour(
+                    self.image,
+                    2,
+                    draw_circle=self.circle,
+                    is_draw_doji=self.doji,
+                    doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
+                    is_draw_center=self.center,
+                )
+                if my_find.standard2 <= 0:
+                    print(f"--> 长度估计出错...")
+                    return origin
+                # 对所有检测框进行判断
+                worm_loc = 0
+                for xyxy in boxes:
+                    cut_image = self.image[
+                        int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
+                    ]
+                    try:
+                        fast_keypoints = fast_ratio(cut_image, 3)
+                        circle = fit_circle(fast_keypoints)
+                        # 为中心下方的两个六边形绘制圆与标签
+                        is_in = my_find.in_contour(xyxy)
+                        if is_in:
+                            draw_circle(
+                                self.image,
+                                circle,
+                                my_find.standard2,
+                                (int(xyxy[0]), int(xyxy[1])),
+                                thickness=2,
+                            )
+                            cv2.putText(
+                                self.image,
+                                f"{(circle[2] * 2 / my_find.standard2):.2f}mm",
+                                (int(xyxy[0]), int(xyxy[1])),
+                                cv2.FONT_HERSHEY_SIMPLEX,
+                                ((h / 1080) + (w / 1920)) / 2,
+                                (0, 0, 255),
+                                2,
+                            )
+                            worm_loc |= is_in
+                    except Exception:
+                        print(f"--> 未知错误，跳过")
+                        return origin
+                return self.image, worm_loc
             else:
-                print(f"--> 没有检测到幼虫...")
-                return self.image
-
-            # 实例化六边形框检测对象
-            my_find = FindContour(
-                self.image,
-                2,
-                draw_circle=self.circle,
-                is_draw_doji=self.doji,
-                doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
-                is_draw_center=self.center,
-            )
-            if my_find.standard2 <= 0:
-                print(f"--> 长度估计出错...")
-                return self.image
-            # 对所有检测框进行判断
-            for xyxy in boxes:
-                cut_image = self.image[
-                    int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
-                ]
-                try:
-                    fast_keypoints = fast_ratio(cut_image, 3)
-                    circle = fit_circle(fast_keypoints)
-                    # 为中心下方的两个六边形绘制圆与标签
-                    if my_find.in_contour(xyxy):
-                        # left_arm.act(True)
-                        draw_circle(
-                            self.image,
-                            circle,
-                            my_find.standard2,
-                            (int(xyxy[0]), int(xyxy[1])),
-                            thickness=2,
-                        )
-                        cv2.putText(
-                            self.image,
-                            f"{(circle[2] * 2 / my_find.standard2):.2f}mm",
-                            (int(xyxy[0]), int(xyxy[1])),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            ((h / 1080) + (w / 1920)) / 2,
-                            (0, 0, 255),
-                            2,
-                        )
-                except Exception:
-                    print(f"--> 未知错误，跳过")
-                    return self.image
+                return origin
         else:
             cv2.putText(
                 self.image,
@@ -140,11 +144,14 @@ class Robort:
             )
             return self.image
 
-    def catch(self):
+    def catch(self, worm_loc):
         """
         抓幼虫
+        
+        Arguments:
+            worm_loc {int} -- 0(00)无幼虫 1(01)左下有幼虫 2(10)右下有幼虫 3(11)左下右下都有幼虫
         """
-        pass
+        self.arm.act(worm_loc)
 
 
 class Arm:
@@ -163,22 +170,36 @@ class Arm:
         self.gpio_out0 = GPIO(output0, "out")
         self.gpio_out1 = GPIO(output1, "out")
 
-    def act(self, left=True):
+    def act(self, worm_loc):
         """
-        激活机械臂，左下格发送01，右下格发送10，间隔5秒
+        激活机械臂，左下格发送01，右下格发送10，都有发送11，都没有发送00
 
         Keyword Arguments:
             left {bool} -- 是否是左下格的六边形 (default: {True})
         """
-        if left:
-            out_list = [False, True]
+        if worm_loc == 0:
+            out0 = False
+            out1 = False
+            print("无幼虫")
+        elif worm_loc == 1:
+            out0 = False
+            out1 = True
             print("抓取左下幼虫")
-        else:
-            out_list = [True, False]
+        elif worm_loc == 2:
+            out0 = True
+            out1 = False
             print("抓取右下幼虫")
-        for out in out_list:
-            self.gpio_out.write(out)
-            time.sleep(0.5)
+        elif worm_loc == 3:
+            out0 = True
+            out1 = True
+            print("有两只幼虫")
+        else:
+            out0 = False
+            out1 = False
+            print("这条输出不可能出现")
+        self.gpio_out0.write(out0)
+        self.gpio_out1.write(out1)
+        
 
     def receive_signal(self):
         """
@@ -189,6 +210,12 @@ class Arm:
         """
         state = self.gpio_in.read()
         return state
+    
+    def wait_signal(self):
+        while True:
+            if self.receive_signal():
+                return True
+            
 
     def close(self):
         """

@@ -1,5 +1,3 @@
 
 python-periphery
-scikit-learn
-opencv-python
 matplotlib
