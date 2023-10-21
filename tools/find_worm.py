@@ -88,7 +88,7 @@ def fit_circle(key_points):
 
 
 def draw_circle(
-    img, circle_params, standard, offsets, thickness=10, draw_keypoints=False
+    img, circle_params, standard, offsets, thickness=10, draw_keypoints=False, diameterThreshold=2.5
 ):
     a, b, r = circle_params
     offset_x, offset_y = offsets
@@ -101,8 +101,13 @@ def draw_circle(
     x_values = x_values.astype(int)
     y_values = y_values.astype(int)
 
-    # 绘制原始图像
-    draw_color = (0, 255, 0) if (r / 3 * 2 / standard < 2.5) else (0, 0, 255)
+    # 判断直径是否小于阈值，小于就标注绿色，大于就标注红色
+    be_catch = False
+    if r * 2 / standard < diameterThreshold:
+        draw_color = (0, 255, 0)
+    else:
+        be_catch = True
+        draw_color = (0, 0, 255)
 
     if draw_keypoints:
         for point in zip(x_values, y_values):
@@ -118,4 +123,4 @@ def draw_circle(
             thickness,
         )
 
-    return img, int(r / 3)
+    return img, be_catch

@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from tools.find_contour import FindContour
 import cv2
-from rknn.api import RKNN
+from rknnlite.api import RKNNLite as RKNN
 import warnings
 from tools.yolo_process import *
 from tools.find_worm import *
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
         # 实例化六边形框检测对象
         my_find = FindContour(
-            img, 2, True, False, doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30)
+            img, 2, False, True, doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30)
         )
         if my_find.standard2 <= 0:
             problem_dir = (

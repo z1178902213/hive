@@ -1,13 +1,18 @@
 {
-    "output_root": "./camera_output",
-    "problem_root": "./problem",
-    "diameter_threshold": 2.5,
-    "top_offset": 0,
-    "left_offset": 0,
-    "roate": 0,
-    "running_mode": 0,
-    "gpio_pin": [[3, 5, 7], [11, 13, 15], [19, 21, 23]],
-    "gpio_map": {
+    "multipleCamera": true,
+    "diameterThreshold": 0.7,
+    "runningMode": 1,
+
+    "preProcess": false,
+    "topOffset": 0,
+    "leftOffset": 0,
+    "rotate": 180,
+
+    "注意": "上面的是可配置参数，下面的最好不要动。",
+    "outputRoot": "./camera_output",
+    "problemRoot": "./problem",
+    "gpioPin": [[3, 5, 7], [11, 13, 15], [19, 21, 23]],
+    "gpioMap": {
         "3": 73,
         "5": 74,
         "7": 89,
