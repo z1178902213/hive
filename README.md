@@ -13,29 +13,50 @@
 - [x] 测试一帧图像处理平均速率
 - [x] 六边形检测优化，准确识别中点下方两个六边形方框
 - [x] 使用python进行GPIO调用
-- [ ] 使用双路摄像头提高检测精度
+- [x] 使用双路摄像头同时检测
+- [x] 将参数暴露出来，做成配置文件
+- [x] 需要能够进行偏移、旋转
+- [x] 校准模式和识别模式，可以进行切换
 
 ## 使用方式
-### 1 安装依赖文件
-```shell
-pip3 install -r requirements.txt
+### 1 配置环境
+这里建议只需要安装rknn-toolkit-lite 1.7.1就好  
+然后再安装matplotlib和python-periphery(用于调用GPIO)  
+
+### 2 配置参数
+打开`config.json`文件，请根据需求进行修改：  
+```json
+{
+    "multipleCamera": true,     //是否开启都摄像头（tinker edge r 经测试多摄像头有问题，不建议开启）
+    "diameterThreshold": 0.7,   //检测幼虫的直径阈值，小于这个阈值不会向机械臂发送信号
+    "runningMode": 1,           //运行模式 0校准模式 1识别模式
+
+    "preProcess": false,        //是否进行预处理，以下3项是预处理的参数
+    "topOffset": 0,             //预处理（上下偏移）：正数向下偏移，负数向上偏移
+    "leftOffset": 0,            //预处理（左右偏移）：正数向右偏移，负数向左偏移
+    "rotate": 180,              //预处理（绕中点旋转）
+
+    // 上面的是可配置参数，下面的最好不要动。
+    "outputRoot": "./camera_output",
+    "problemRoot": "./problem",
+    "gpioPin": [[3, 5, 7], [11, 13, 15], [19, 21, 23]],
+    "gpioMap": {
+        "3": 73,
+        "5": 74,
+        "7": 89,
+        "11": 83,
+        "13": 85,
+        "15": 84,
+        "19": 40,
+        "21": 39,
+        "23": 41
+    }
+}
 ```
 
-### 2 修改参数
-打开`main.py`文件，可以看到其中有一些大写命名的参数，请根据需求进行修改：  
-```python
-RKNN_MODEL = "worm.rknn"
-BOX_THRESH = 0.5
-NMS_THRESH = 0.0
-IMG_SIZE = 640
-RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
-IMAGE_FOLDER = "./all_images"
-OUTPUTS_ROOT = IMAGE_FOLDER + "_outputs"
-PROBLEM_ROOT = "./problems"
-CLASSES = "worm"
+### 3 运行程序
+```shell
+sudo python3 main.py
 ```
 
-### 3 运行项目主程序文件
-```shell
-python3 main.py
-```
+或者双击脚本`start.sh`运行  

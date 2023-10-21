@@ -6,11 +6,17 @@ import cv2
 import time
 
 class Robort:
-    def __init__(self, rk_yolo, camera_id, gpio_pin, gpio_map, running_mode):
+    def __init__(self, rk_yolo, camera_id, index, config):
+        self.config = config
+        self.gpio_pin = self.config["gpioPin"][index]
+        self.diameter_threshold = self.config['diameterThreshold']
+        print('diameterThreshold:', self.diameter_threshold)
+        gpio_map = self.config["gpioMap"]
+        running_mode = self.config["runningMode"]
+        
         self.rk_yolo = rk_yolo
-        self.gpio_pin = gpio_pin
         self.eye = cv2.VideoCapture(camera_id)
-        self.arm = Arm(gpio_pin, gpio_map)
+        self.arm = Arm(self.gpio_pin, gpio_map)
         self.image = None
         self.mode = 0
         self.change_mode(running_mode)
@@ -42,11 +48,17 @@ class Robort:
             bool -- 是否捕获成功
         """
         ret, self.image = self.eye.read()
+        if self.config['preProcess']:
+            h, w, _ = self.image.shape
+            # 对图像进行旋转
+            self.image = cv2.warpAffine(self.image, cv2.getRotationMatrix2D((w / 2,h / 2), self.config['rotate'], 1), (w, h))
+            # 对图像进行偏移
+            self.image = cv2.warpAffine(self.image,np.float32([[1,0,self.config['leftOffset']],[0,1,self.config['topOffset']]]),(w,h))
         return ret
 
     def draw(self):
         if self.mode == 0:
-            h, w, c = self.image.shape
+            h, w, _ = self.image.shape
             FindContour(
                 self.image,
                 2,
@@ -109,12 +121,13 @@ class Robort:
                         # 为中心下方的两个六边形绘制圆与标签
                         is_in = my_find.in_contour(xyxy)
                         if is_in:
-                            draw_circle(
+                            _, be_catch = draw_circle(
                                 self.image,
                                 circle,
                                 my_find.standard2,
                                 (int(xyxy[0]), int(xyxy[1])),
-                                thickness=2,
+                                thickness = 2,
+                                diameterThreshold = self.diameter_threshold
                             )
                             cv2.putText(
                                 self.image,
@@ -125,7 +138,8 @@ class Robort:
                                 (0, 0, 255),
                                 2,
                             )
-                            worm_loc |= is_in
+                            if be_catch:
+                                worm_loc |= is_in
                     except Exception:
                         print(f"--> 未知错误，跳过")
                         return origin
