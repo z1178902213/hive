@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from rknn.api import RKNN
+from rknnlite.api import RKNNLite as RKNN
 
 
 def sigmoid(x):

@@ -45,11 +45,39 @@ def show_double(camera_list):
         if index == len(cap_list):
             index = 0
 
+def video_save(camera_list):
+    outVideo_list = []
+    cap_list = []
+    for camera_id in camera_list:
+        print(f"将{camera_id}加入摄像头列表")
+        cap = cv2.VideoCapture(camera_id)
+        cap_list.append(cap)
+        # get size and fps of video
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        fourcc = cv2.VideoWriter_fourcc('M', 'P', '4', '2')
+        # create VideoWriter for saving
+        outVideo = cv2.VideoWriter(f'save_test_video_{camera_id}.avi', fourcc, fps, (width, height))
+        outVideo_list.append(outVideo)
+    index = 0
+    while True:
+        for cap, outVideo in zip(cap_list, outVideo_list):
+            ret, frame = cap.read()
+            if ret:
+                outVideo.write(frame)
+            else:
+                print(f'{index}读不了一点')
+            index += 1
+
+    
+
 if __name__ == "__main__":
     camera_list = find_and_check_cameras()
-    t_list = []
+    # t_list = []
     print(camera_list)
-    show_double(camera_list)
+    # show_double(camera_list)
+    video_save(camera_list)
     # for index, c in enumerate(camera_list):
     #     t = Thread(target=show, args=((index, c)))
     #     t_list.append(t)

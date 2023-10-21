@@ -6,4 +6,5 @@ runs*
 !test.jpg
 *.log
 *.tgz
-*.tar
+*.tar*
+*.avi
