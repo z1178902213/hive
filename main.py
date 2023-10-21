@@ -1,4 +1,4 @@
-from tools.common import Clock, load_config
+from tools.common import Clock, load_config, find_and_check_cameras
 
 clock = Clock()
 from threading import Thread
@@ -64,8 +64,8 @@ if __name__ == "__main__":
     rk_yolo = RK_YOLO("./worm.rknn")
     clock.print_time("成功")
 
-    # camera_list = find_and_check_cameras()
-    camera_list = ['test1.mp4', 'test2.mp4']
+    camera_list = find_and_check_cameras()
+    # camera_list = ['test1.mp4', 'test2.mp4']
     tips = '' if config['multipleCamera'] else '，未开启多摄像头模式，默认使用第一个摄像头'
     print(f'--> 检测到{len(camera_list)}个摄像头{tips}')
     if camera_list:

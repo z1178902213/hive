@@ -1,12 +1,12 @@
 {
     "multipleCamera": true,
-    "diameterThreshold": 0.7,
+    "diameterThreshold": 2.5,
     "runningMode": 1,
 
     "preProcess": false,
     "topOffset": 0,
     "leftOffset": 0,
-    "rotate": 180,
+    "rotate": 0,
 
     "注意": "上面的是可配置参数，下面的最好不要动。",
     "outputRoot": "./camera_output",
