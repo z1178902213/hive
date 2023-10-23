@@ -1,3 +1,4 @@
-
+ruamel.yaml
 python-periphery
 matplotlib
+psutil
