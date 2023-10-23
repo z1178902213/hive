@@ -16,10 +16,8 @@ def find_and_check_cameras():
     ok_list = []
     for i in range(0, 20):  # 遍历摄像头编号，找到能用的双目摄像头
         cap = cv2.VideoCapture(i)
-        ret, _ = cap.read()
-        if ret:
+        if cap.isOpened():
             ok_list.append(i)
-            cap.release()
     cv2.setLogLevel(log_level)  # 恢复日志等级
     return ok_list
 

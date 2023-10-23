@@ -1,7 +1,8 @@
 {
     "multipleCamera": true,
     "diameterThreshold": 2.5,
-    "runningMode": 1,
+    "runningMode": 0,
+    "sleepTime": 1,
 
     "preProcess": false,
     "topOffset": 0,
