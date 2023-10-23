@@ -1,10 +1,10 @@
-from tools.common import Clock, load_config
+from tools.common import Clock, load_config, find_and_check_cameras
 
 clock = Clock()
-from threading import Thread
 import os
 import cv2
 import warnings
+import time
 from tools.robort import Robort
 from tools.yolo_process import *
 from tools.find_worm import *
@@ -36,7 +36,8 @@ def run(rk_yolo, camera_list, config):
                 print(f'没有这么多组GPIO，请保持摄像头数量在{len(gpio_pin)}个')
             roborts.append(Robort(rk_yolo, camera_id, index, config))
     else:
-        roborts.append(Robort(rk_yolo, camera_list[0], index, config))
+        roborts.append(Robort(rk_yolo, camera_list[0], 0, config))
+
 
     # 进入主程序逻辑
     while True:
@@ -46,6 +47,7 @@ def run(rk_yolo, camera_list, config):
                 if isinstance(img, tuple):
                     img, worm_loc = img
                     bot.catch(worm_loc)
+                    time.sleep(1)
                 cv2.namedWindow(f'{index}', cv2.WINDOW_KEEPRATIO)
                 cv2.imshow(f"{index}", img)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -64,8 +66,8 @@ if __name__ == "__main__":
     rk_yolo = RK_YOLO("./worm.rknn")
     clock.print_time("成功")
 
-    # camera_list = find_and_check_cameras()
-    camera_list = ['test1.mp4', 'test2.mp4']
+    camera_list = find_and_check_cameras()
+    # camera_list = ['test1.mp4', 'test2.mp4']
     tips = '' if config['multipleCamera'] else '，未开启多摄像头模式，默认使用第一个摄像头'
     print(f'--> 检测到{len(camera_list)}个摄像头{tips}')
     if camera_list:

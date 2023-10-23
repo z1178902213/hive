@@ -1,7 +1,7 @@
 {
-    "multipleCamera": true,
-    "diameterThreshold": 0.7,
-    "runningMode": 1,
+    "multipleCamera": false,
+    "diameterThreshold": 2.5,
+    "runningMode": 0,
 
     "preProcess": false,
     "topOffset": 0,
