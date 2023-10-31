@@ -8,7 +8,7 @@ from scipy.ndimage import label
 
 class FindContour(object):
     def __init__(self, image: np.array, topk: int, draw_contour: bool = False, draw_circle: bool = True,
-                 is_draw_doji: bool = True, doji_len: int = 10, is_draw_center=True, center_dis: int = 1):
+                 is_draw_doji: bool = True, doji_len: int = 10, is_draw_center=True, center_dis: float = 1):
         """
         :param image:  open_cv读取的图像，np.array
         :param topk:   需要找到的下半部分中离中点最近的框的个数

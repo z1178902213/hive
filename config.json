@@ -1,8 +1,8 @@
 {
     "multipleCamera": true,
     "diameterThreshold": 2.5,
-    "runningMode": 0,
-    "sleepTime": 1,
+    "sleepTime": 1.0,
+    "dojiOffset": 1.0,
 
     "preProcess": false,
     "topOffset": 0,
