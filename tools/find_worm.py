@@ -38,7 +38,7 @@ def circle_residuals(params, x, y):
     return np.sqrt((x - a) ** 2 + (y - b) ** 2) - r
 
 
-def fast_ratio(image, ratio):
+def fast_ratio(image, ratio, draw_keypoint = False):
     """
     对图像按比例放大后进行角点检测，返回关键点坐标
 
@@ -61,6 +61,14 @@ def fast_ratio(image, ratio):
     for keypoint in key_points:
         x, y = keypoint.pt[0] / ratio, keypoint.pt[1] / ratio
         resume_points.append((x, y))
+    for i in range(int(len(key_points) / 10)):
+        resume_points.append((int(w/2), 0))
+        resume_points.append((int(w/2), h))
+        resume_points.append((0, int(h/2)))
+        resume_points.append((w, int(h/2)))
+        
+    if draw_keypoint:
+        image = cv2.drawKeypoints(image, keypoints = key_points, outImage=image, color=(255,0,255))
     return resume_points
 
 
