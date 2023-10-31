@@ -4,7 +4,6 @@ clock = Clock()
 import os
 import cv2
 import warnings
-import time
 from tools.robort import Robort
 from tools.yolo_process import *
 from tools.find_worm import *
@@ -47,8 +46,6 @@ def run(rk_yolo, camera_list, config):
                 if isinstance(img, tuple):
                     img, worm_loc = img
                     bot.catch(worm_loc)
-                    if bot.mode == 1:
-                        time.sleep(config['sleepTime'])
                 cv2.namedWindow(f'{index}', cv2.WINDOW_KEEPRATIO)
                 cv2.imshow(f"{index}", img)
                 if cv2.waitKey(1) & 0xFF == ord("q"):

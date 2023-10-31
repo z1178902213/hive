@@ -34,7 +34,7 @@ class FindContour(object):
             for cont in self.topk_cont:
                 max_radius, center = self.inscribed_circle(cont)
                 cv2.circle(self.image, center, int(max_radius), (0, 255, 0), 2)
-        self.standard1, self.standard2 = 0, 0
+        # self.standard1, self.standard2 = 0, 0
 
     def find_contours(self, topk, draw=False, center_dis=1):
         threshold_binary = np.where(self.gray > 200, 1, 0)

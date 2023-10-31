@@ -4,6 +4,7 @@ from tools.yolo_process import letterbox, box_resume
 from tools.find_worm import *
 import cv2
 import time
+from threading import Thread
 
 class Robort:
     def __init__(self, rk_yolo, camera_id, index, config):
@@ -18,28 +19,11 @@ class Robort:
         self.eye = cv2.VideoCapture(camera_id)
         self.arm = Arm(self.gpio_pin, gpio_map)
         self.image = None
-        self.mode = 0
-        self.change_mode(running_mode)
+        self.circle=True
+        self.doji=True
+        self.center=True
+        self.gpio=True
         self.flag = True
-    
-    def change_mode(self, mode):
-        """
-        变换模式
-
-        Arguments:
-            mode {int} -- 模式编号 0校准 1检测
-        """
-        self.mode = mode
-        if mode == 0:
-            self.circle=True
-            self.doji=True
-            self.center=True
-            self.gpio=True
-        elif mode == 1:
-            self.circle=True
-            self.doji=True
-            self.center=False
-            self.gpio=False
     
     def capture(self):
         """
@@ -69,81 +53,75 @@ class Robort:
                 2,
             )
         origin = self.image.copy()
-        if self.arm.receive_signal() or self.mode == 0:
-            self.flag = True
-            h, w, c = self.image.shape  # 帧的高、宽、通道数
+        
+        h, w, c = self.image.shape  # 帧的高、宽、通道数
 
-            frame_letterbox, ratio, (dw, dh) = letterbox(
-                self.image.copy(), new_shape=(640, 640)
-            )
-            frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
-            frame_rgb = cv2.resize(frame_rgb, (640, 640))
+        frame_letterbox, ratio, (dw, dh) = letterbox(
+            self.image.copy(), new_shape=(640, 640)
+        )
+        frame_rgb = cv2.cvtColor(frame_letterbox, cv2.COLOR_BGR2RGB)
+        frame_rgb = cv2.resize(frame_rgb, (640, 640))
 
-            boxes, classes, scores = self.rk_yolo.detect(frame_rgb, 640, 0.5, 0)
+        boxes, classes, scores = self.rk_yolo.detect(frame_rgb, 640, 0.5, 0)
 
-            if boxes is not None:
-                boxes = box_resume(boxes, ratio, (dw, dh))
-            else:
-                print(f"--> 没有检测到幼虫...")
-                return origin
-
-            # 实例化六边形框检测对象
-            my_find = FindContour(
-                self.image,
-                2,
-                draw_circle=self.circle,
-                is_draw_doji=self.doji,
-                doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
-                is_draw_center=self.center,
-            )
-            if my_find.standard2 <= 0:
-                print(f"--> 长度估计出错...")
-                return origin
-            # 对所有检测框进行判断
-            worm_loc = 0
-            count = 0
-            be_catch_count = 0
-            for xyxy in boxes:
-                cut_image = self.image[
-                    int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
-                ]
-                try:
-                    fast_keypoints = fast_ratio(cut_image, 3)
-                    circle = fit_circle(fast_keypoints)
-                    # 为中心下方的两个六边形绘制圆与标签
-                    is_in = my_find.in_contour(xyxy)
-                    if is_in:
-                        count += 1
-                        _, be_catch = draw_circle(
-                            self.image,
-                            circle,
-                            my_find.standard2,
-                            (int(xyxy[0]), int(xyxy[1])),
-                            thickness = 2,
-                            diameterThreshold = self.diameter_threshold
-                        )
-                        cv2.putText(
-                            self.image,
-                            f"{(circle[2] * 2 / my_find.standard2):.2f}mm",
-                            (int(xyxy[0]), int(xyxy[1])),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            ((h / 1080) + (w / 1920)) / 2,
-                            (0, 0, 255),
-                            2,
-                        )
-                        if be_catch:
-                            be_catch_count += 1
-                            worm_loc |= is_in
-                except Exception:
-                    print(f"--> 未知错误，跳过")
-                    return origin
-            print(f'有{count}只虫，其中有{be_catch_count}只虫需要抓取')
-            return self.image, worm_loc
+        if boxes is not None:
+            boxes = box_resume(boxes, ratio, (dw, dh))
         else:
-            if self.flag:
-                print('--> 等待机械臂信号...')
-                self.flag = False
+            print(f"--> 没有检测到幼虫...")
             return origin
+
+        # 实例化六边形框检测对象
+        my_find = FindContour(
+            self.image,
+            2,
+            draw_circle=self.circle,
+            is_draw_doji=self.doji,
+            doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
+            is_draw_center=self.center,
+        )
+        if my_find.standard2 <= 0:
+            print(f"--> 长度估计出错...")
+            return origin
+        # 对所有检测框进行判断
+        worm_loc = 0
+        count = 0
+        be_catch_count = 0
+        for xyxy in boxes:
+            cut_image = self.image[
+                int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
+            ]
+            try:
+                fast_keypoints = fast_ratio(cut_image, 3)
+                circle = fit_circle(fast_keypoints)
+                # 为中心下方的两个六边形绘制圆与标签
+                is_in = my_find.in_contour(xyxy)
+                if is_in:
+                    count += 1
+                    _, be_catch = draw_circle(
+                        self.image,
+                        circle,
+                        my_find.standard2,
+                        (int(xyxy[0]), int(xyxy[1])),
+                        thickness = 2,
+                        diameterThreshold = self.diameter_threshold
+                    )
+                    cv2.putText(
+                        self.image,
+                        f"{(circle[2] * 2 / my_find.standard2):.2f}mm",
+                        (int(xyxy[0]), int(xyxy[1])),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        ((h / 1080) + (w / 1920)) / 2,
+                        (0, 0, 255),
+                        2,
+                    )
+                    if be_catch:
+                        be_catch_count += 1
+                        worm_loc |= is_in
+            except Exception:
+                print(f"--> 未知错误，跳过")
+                return origin
+        print(f'有{count}只虫，其中有{be_catch_count}只虫需要抓取')
+        return self.image, worm_loc
 
     def catch(self, worm_loc):
         """
@@ -152,7 +130,17 @@ class Robort:
         Arguments:
             worm_loc {int} -- 0(00)无幼虫 1(01)左下有幼虫 2(10)右下有幼虫 3(11)左下右下都有幼虫
         """
-        self.arm.act(worm_loc)
+        if self.arm.receive_signal() and not self.arm.waiting:
+            print(f"GPIO输出信号: {worm_loc:2b}(00无幼虫 01左下有幼虫 10右下有幼虫 11左下右下都有幼虫)")
+            self.arm.act(worm_loc)
+            self.arm.waiting = True
+            t = Thread(target=self.arm.wait_response, args=((0, self.config['sleepTime'])))
+            t.start()
+            self.flag = True
+        elif not self.arm.receive_signal():
+            if self.flag:
+                print('--> 等待机械臂信号...')
+                self.flag = False
 
 
 class Arm:
@@ -170,6 +158,7 @@ class Arm:
         self.gpio_in = GPIO(input, "in")
         self.gpio_out0 = GPIO(output0, "out")
         self.gpio_out1 = GPIO(output1, "out")
+        self.waiting = False
 
     def act(self, worm_loc):
         """
@@ -214,12 +203,11 @@ class Arm:
             print('--> 接收到机械臂信号，开始处理图片')
         return state
     
-    def wait_signal(self):
-        print('--> 等待机械臂信号...')
-        while True:
-            if self.receive_signal():
-                return True
-            
+    def wait_response(self, index, sleepTime):
+        print('--> 暂停输出GPIO信号，等待1s后自动恢复')
+        time.sleep(sleepTime)
+        self.waiting = False
+        print('--> 恢复输出GPIO信号')
 
     def close(self):
         """

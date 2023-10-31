@@ -24,7 +24,7 @@ BOX_THRESH = 0.5
 NMS_THRESH = 0.0
 IMG_SIZE = 640
 RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
-IMAGE_FOLDER = "./3days"
+IMAGE_FOLDER = "./test_image"
 OUTPUTS_ROOT = IMAGE_FOLDER + "_outputs"
 PROBLEM_ROOT = "./problems"
 CLASSES = "worm"
@@ -66,8 +66,6 @@ if __name__ == "__main__":
 
         img = cv2.imread(SOURCE)
         h, w, c = img.shape  # 保存图像的高、宽、通道数
-        if h > 500:
-            continue
 
         img_letterbox, ratio, (dw, dh) = letterbox(
             img.copy(), new_shape=(IMG_SIZE, IMG_SIZE)
