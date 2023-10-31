@@ -27,16 +27,17 @@
 打开`config.json`文件，请根据需求进行修改：  
 ```json
 {
-    "multipleCamera": true,     //是否开启都摄像头（tinker edge r 经测试多摄像头有问题，不建议开启）
-    "diameterThreshold": 0.7,   //检测幼虫的直径阈值，小于这个阈值不会向机械臂发送信号
-    "runningMode": 1,           //运行模式 0校准模式 1识别模式
+    "multipleCamera": true,     //是否开启双摄像头，true表示多摄像头，false表示单摄像头
+    "diameterThreshold": 0.7,   //检测幼虫的直径阈值，小于这个阈值不会向机械臂发送信号，单位是mm
+    "sleepTime": 1.0,           //向机械臂发送信号后，等待响应的时长
+    "dojiOffset": 1.0,          //红色准星偏离蓝色准星的最大距离，单位是mm
 
-    "preProcess": false,        //是否进行预处理，以下3项是预处理的参数
-    "topOffset": 0,             //预处理（上下偏移）：正数向下偏移，负数向上偏移
-    "leftOffset": 0,            //预处理（左右偏移）：正数向右偏移，负数向左偏移
-    "rotate": 180,              //预处理（绕中点旋转）
+    "preProcess": false,        //是否进行预处理，以下3项是预处理的参数，true是做预处理，false是不做预处理
+    "topOffset": 0.0,           //预处理（上下偏移）：正数向下偏移，负数向上偏移
+    "leftOffset": 0.0,          //预处理（左右偏移）：正数向右偏移，负数向左偏移
+    "rotate": 0.0,              //预处理（绕中点旋转）
 
-    // 上面的是可配置参数，下面的最好不要动。
+    // 上面的是可配置参数，下面的不做修改。
     "outputRoot": "./camera_output",
     "problemRoot": "./problem",
     "gpioPin": [[3, 5, 7], [11, 13, 15], [19, 21, 23]],

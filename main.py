@@ -4,7 +4,6 @@ clock = Clock()
 import os
 import cv2
 import warnings
-import time
 from tools.robort import Robort
 from tools.yolo_process import *
 from tools.find_worm import *
@@ -37,8 +36,8 @@ def run(rk_yolo, camera_list, config):
             roborts.append(Robort(rk_yolo, camera_id, index, config))
     else:
         roborts.append(Robort(rk_yolo, camera_list[0], 0, config))
-
-
+    
+    count = 0
     # 进入主程序逻辑
     while True:
         for index, bot in enumerate(roborts):
@@ -47,14 +46,15 @@ def run(rk_yolo, camera_list, config):
                 if isinstance(img, tuple):
                     img, worm_loc = img
                     bot.catch(worm_loc)
-                    if bot.mode == 1:
-                        time.sleep(config['sleepTime'])
+                # bot.out.write(img)
                 cv2.namedWindow(f'{index}', cv2.WINDOW_KEEPRATIO)
                 cv2.imshow(f"{index}", img)
+                # cv2.imwrite(f'./camera_output/{index}_{count}.jpg', img)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
             else:
                 print('--> 没有捕获到图片...')
+        count += 1
 
 
 if __name__ == "__main__":
