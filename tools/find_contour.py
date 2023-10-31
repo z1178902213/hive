@@ -34,7 +34,7 @@ class FindContour(object):
             for cont in self.topk_cont:
                 max_radius, center = self.inscribed_circle(cont)
                 cv2.circle(self.image, center, int(max_radius), (0, 255, 0), 2)
-        self.standard1, self.standard2 = 0, 0
+        # self.standard1, self.standard2 = 0, 0
 
     def find_contours(self, topk, draw=False, center_dis=1):
         threshold_binary = np.where(self.gray > 200, 1, 0)
@@ -68,22 +68,23 @@ class FindContour(object):
         M = cv2.moments(center_contour)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
+        cX, cY = self.move_point((self.w // 2, self.h // 2), (cX, cY), self.standard2)
         self.cX, self.cY = cX, cY
-        if np.sqrt((cX - self.w // 2) ** 2 + (cY - self.h // 2) ** 2) > center_dis * self.standard2:
-            self.beyond_distance = True
-            draw = False
-            self.draw_circle = False
+        # if np.sqrt((cX - self.w // 2) ** 2 + (cY - self.h // 2) ** 2) > center_dis * self.standard2:
+        #     self.beyond_distance = True
+        #     draw = False
+        #     self.draw_circle = False
 
         if self.is_draw_doji:
             self.draw_doji((cX, cY), self.draw_doji_len)
         contours = [cnt for cnt in contours if
-                    not np.any(np.abs(cnt[..., 1] - cY) < 20) and not np.all(cnt[..., 1] <= cY)]
+                    not np.any(np.abs(cnt[..., 1] - cY) < 5) and not np.all(cnt[..., 1] <= cY)]
         result = self.calculate_dis(contours, (cX, cY))
         result = [r for r in result if r[1] < 7 * self.standard2]
         result.sort(key=lambda x: x[1])
         find_topk = []
         if len(result) < topk and result != []:
-            return contours[result[0][0]]
+            return [contours[result[0][0]]]
         elif len(result) == 0:
             return []
         for i in range(topk):
@@ -157,14 +158,26 @@ class FindContour(object):
 
     def draw_doji(self, center_point, length=50, color=(0, 0, 255)):
         cx, cy = center_point
-        cv2.line(self.image, (cx - length, cy), (cx + length, cy), color, 2)
-        cv2.line(self.image, (cx, cy - length), (cx, cy + length), color, 2)
+        cv2.line(self.image, (int(cx - length), int(cy)), (int(cx + length), int(cy)), color, 2)
+        cv2.line(self.image, (int(cx), int(cy - length)), (int(cx), int(cy + length)), color, 2)
+
+    def move_point(self, A, B, dis):
+        distance = np.linalg.norm(np.array(A) - np.array(B))
+        if distance > dis:
+            direction = np.array(B) - np.array(A)
+            unit_direction = direction / np.linalg.norm(direction)
+            scaled_vector = unit_direction * dis
+            new_B = np.array(A) + scaled_vector
+            return new_B
+        else:
+            return B
 
 
 if __name__ == '__main__':
-    for img in [img for img in os.listdir('../imgs') if img.endswith('.jpg')]:
+    file_path = "../images"
+    for img in [img for img in os.listdir(file_path) if img.endswith('.jpg')]:
         img_name = os.path.splitext(img)[0]
-        image = cv2.imread('../imgs/{}'.format(img), cv2.THRESH_BINARY_INV)
+        image = cv2.imread('{}/{}'.format(file_path, img), cv2.THRESH_BINARY_INV)
         findcontours = FindContour(image, 2, False, True)
         plt.imshow(cv2.cvtColor(findcontours.image, cv2.COLOR_BGR2RGB))
         # plt.imshow(findcontours.dilated)
