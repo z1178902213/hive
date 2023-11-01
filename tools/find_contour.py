@@ -7,8 +7,17 @@ from scipy.ndimage import label
 
 
 class FindContour(object):
-    def __init__(self, image: np.array, topk: int, draw_contour: bool = False, draw_circle: bool = True,
-                 is_draw_doji: bool = True, doji_len: int = 10, is_draw_center=True, center_dis: float = 1):
+    def __init__(
+        self,
+        image: np.array,
+        topk: int,
+        draw_contour: bool = False,
+        draw_circle: bool = True,
+        is_draw_doji: bool = True,
+        doji_len: int = 10,
+        is_draw_center=True,
+        center_dis: float = 1,
+    ):
         """
         :param image:  open_cv读取的图像，np.array
         :param topk:   需要找到的下半部分中离中点最近的框的个数
@@ -39,32 +48,42 @@ class FindContour(object):
     def find_contours(self, topk, draw=False, center_dis=1):
         threshold_binary = np.where(self.gray > 200, 1, 0)
         self.threshold_binary = threshold_binary * 255
-        self.adaptive_threshold = cv2.adaptiveThreshold(self.gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
-                                                        cv2.THRESH_BINARY_INV,
-                                                        11, 2)
+        self.adaptive_threshold = cv2.adaptiveThreshold(
+            self.gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, 11, 2
+        )
         # 进行腐蚀膨胀操作
         kernel = np.ones((3, 3), np.uint8)
-        dilated = cv2.dilate(self.threshold_binary.astype(np.uint8), kernel, iterations=1)
-        threshold_binary = cv2.erode(self.threshold_binary.astype(np.uint8), kernel, iterations=1)
+        dilated = cv2.dilate(
+            self.threshold_binary.astype(np.uint8), kernel, iterations=1
+        )
+        threshold_binary = cv2.erode(
+            self.threshold_binary.astype(np.uint8), kernel, iterations=1
+        )
 
         label_images, nums_image = label(threshold_binary)
         sizes = np.bincount(label_images.ravel())
         sizes[0] = 0
         max_label = sizes.argmax()
         mask = np.where(label_images == max_label, 0, 1)
-        contours, _ = cv2.findContours(mask.astype(
-            np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = [cnt for cnt in contours if
-                    cv2.contourArea(cnt) > 2000]  # and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
+        contours, _ = cv2.findContours(
+            mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        contours = [
+            cnt for cnt in contours if cv2.contourArea(cnt) > 2000
+        ]  # and not np.all(cnt[..., 1] <= 1.08 * self.h / 2)]
         areas = [cv2.contourArea(area) for area in contours]
-        contours = [cnt for cnt in contours if cv2.contourArea(cnt) < 2 * np.average(areas)]
+        contours = [
+            cnt for cnt in contours if cv2.contourArea(cnt) < 2 * np.average(areas)
+        ]
         mid_dis = self.calculate_dis(contours, self.center_point)
         mid_dis.sort(key=lambda x: x[1])
         if len(mid_dis) == 0:
             return mid_dis
         center_contour = contours[mid_dis[0][0]]
         second_center = contours[mid_dis[1][0]]
-        self.standard1, self.standard2 = self.calculate_standard([center_contour, second_center])
+        self.standard1, self.standard2 = self.calculate_standard(
+            [center_contour, second_center]
+        )
         M = cv2.moments(center_contour)
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
@@ -77,10 +96,16 @@ class FindContour(object):
 
         if self.is_draw_doji:
             self.draw_doji((cX, cY), self.draw_doji_len)
-        contours = [cnt for cnt in contours if
-                    not np.any(np.abs(cnt[..., 1] - cY) < 5) and not np.all(cnt[..., 1] <= cY)]
+        contours = [
+            cnt
+            for cnt in contours
+            if not np.any(np.abs(cnt[..., 1] - cY) < 5)
+            and not np.all(cnt[..., 1] <= cY)
+        ]
         result = self.calculate_dis(contours, (cX, cY))
-        result = [r for r in result if r[1] < 7 * self.standard2 > r[1] > 3 * self.standard2]
+        result = [
+            r for r in result if r[1] < 7 * self.standard2 > r[1] > 3 * self.standard2
+        ]
         result.sort(key=lambda x: x[1])
         find_topk = []
         if len(result) < topk and result != []:
@@ -111,7 +136,8 @@ class FindContour(object):
         cX = int(M["m10"] / M["m00"])
         cY = int(M["m01"] / M["m00"])
         min_dist = np.average(
-            np.sqrt((cont[:, 0, 0] - cX) ** 2 + (cont[:, 0, 1] - cY) ** 2))
+            np.sqrt((cont[:, 0, 0] - cX) ** 2 + (cont[:, 0, 1] - cY) ** 2)
+        )
         center = (cX, cY)
         return min_dist, center
 
@@ -139,13 +165,12 @@ class FindContour(object):
         #     (rect[2], rect[3]),  # 右下
         #     (rect[0], rect[3])  # 左下
         # ]
-        rect_points = [
-            ((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2)  # 中心点
-        ]
+        rect_points = [((rect[0] + rect[2]) / 2, (rect[1] + rect[3]) / 2)]  # 中心点
         result = 0
         for i, cont in enumerate(self.topk_cont):
-            all_points_inside = all(cv2.pointPolygonTest(
-                cont, pt, False) >= 0 for pt in rect_points)
+            all_points_inside = all(
+                cv2.pointPolygonTest(cont, pt, False) >= 0 for pt in rect_points
+            )
             if all_points_inside:
                 M = cv2.moments(cont)
                 cX = int(M["m10"] / M["m00"])
@@ -158,8 +183,20 @@ class FindContour(object):
 
     def draw_doji(self, center_point, length=50, color=(0, 0, 255)):
         cx, cy = center_point
-        cv2.line(self.image, (int(cx - length), int(cy)), (int(cx + length), int(cy)), color, 2)
-        cv2.line(self.image, (int(cx), int(cy - length)), (int(cx), int(cy + length)), color, 2)
+        cv2.line(
+            self.image,
+            (int(cx - length), int(cy)),
+            (int(cx + length), int(cy)),
+            color,
+            2,
+        )
+        cv2.line(
+            self.image,
+            (int(cx), int(cy - length)),
+            (int(cx), int(cy + length)),
+            color,
+            2,
+        )
 
     def move_point(self, A, B, dis):
         distance = np.linalg.norm(np.array(A) - np.array(B))
@@ -173,11 +210,11 @@ class FindContour(object):
             return B
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     file_path = "../images"
-    for img in [img for img in os.listdir(file_path) if img.endswith('.jpg')]:
+    for img in [img for img in os.listdir(file_path) if img.endswith(".jpg")]:
         img_name = os.path.splitext(img)[0]
-        image = cv2.imread('{}/{}'.format(file_path, img), cv2.THRESH_BINARY_INV)
+        image = cv2.imread("{}/{}".format(file_path, img), cv2.THRESH_BINARY_INV)
         findcontours = FindContour(image, 2, False, True)
         plt.imshow(cv2.cvtColor(findcontours.image, cv2.COLOR_BGR2RGB))
         # plt.imshow(findcontours.dilated)
