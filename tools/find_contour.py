@@ -80,7 +80,7 @@ class FindContour(object):
         contours = [cnt for cnt in contours if
                     not np.any(np.abs(cnt[..., 1] - cY) < 5) and not np.all(cnt[..., 1] <= cY)]
         result = self.calculate_dis(contours, (cX, cY))
-        result = [r for r in result if r[1] < 7 * self.standard2]
+        result = [r for r in result if r[1] < 7 * self.standard2 > r[1] > 3 * self.standard2]
         result.sort(key=lambda x: x[1])
         find_topk = []
         if len(result) < topk and result != []:
