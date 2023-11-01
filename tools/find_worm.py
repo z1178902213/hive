@@ -111,7 +111,7 @@ def draw_circle(
 
     # 判断直径是否小于阈值，小于就标注绿色，大于就标注红色
     be_catch = False
-    if r * 2 / standard < diameterThreshold:
+    if r * 2 / standard >= diameterThreshold:
         draw_color = (0, 255, 0)
     else:
         be_catch = True
