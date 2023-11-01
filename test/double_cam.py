@@ -30,8 +30,8 @@ def show_double(camera_list):
     cap_list = []
     for camera_id in camera_list:
         cap = cv2.VideoCapture(camera_id)
-        cap.set(3, 108)
-        cap.set(4, 192)
+        cap.set(3, 1920)
+        cap.set(4, 1080)
         cap_list.append(cap)
     index = 0
     while True:

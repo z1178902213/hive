@@ -3,6 +3,7 @@
     "diameterThreshold": 2.5,
     "sleepTime": 1.0,
     "dojiOffset": 1.0,
+    "resolution": [1920, 1080],
 
     "preProcess": false,
     "topOffset": 0,

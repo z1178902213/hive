@@ -6,25 +6,27 @@ import cv2
 import time
 from threading import Thread
 
+
 class Robort:
     def __init__(self, rk_yolo, camera_id, index, config):
         self.config = config
         self.index = index
         self.gpio_pin = self.config["gpioPin"][index]
-        self.diameter_threshold = self.config['diameterThreshold']
+        self.diameter_threshold = self.config["diameterThreshold"]
         gpio_map = self.config["gpioMap"]
-        
+
         self.rk_yolo = rk_yolo
         self.eye = cv2.VideoCapture(camera_id)
+        self.eye.set(3, self.config["resolution"][0])
+        self.eye.set(4, self.config["resolution"][1])
         self.arm = Arm(self.gpio_pin, gpio_map)
         self.image = None
-        self.circle=True
-        self.doji=True
-        self.center=True
-        self.gpio=True
+        self.circle = True
+        self.doji = True
+        self.center = True
+        self.gpio = True
         self.flag = True
 
-    
     def capture(self):
         """
         捕获一张图像
@@ -33,12 +35,25 @@ class Robort:
             bool -- 是否捕获成功
         """
         ret, self.image = self.eye.read()
-        if self.config['preProcess']:
+        if self.config["preProcess"]:
             h, w, _ = self.image.shape
             # 对图像进行旋转
-            self.image = cv2.warpAffine(self.image, cv2.getRotationMatrix2D((w / 2,h / 2), self.config['rotate'], 1), (w, h))
+            self.image = cv2.warpAffine(
+                self.image,
+                cv2.getRotationMatrix2D((w / 2, h / 2), self.config["rotate"], 1),
+                (w, h),
+            )
             # 对图像进行偏移
-            self.image = cv2.warpAffine(self.image,np.float32([[1,0,self.config['leftOffset']],[0,1,self.config['topOffset']]]),(w,h))
+            self.image = cv2.warpAffine(
+                self.image,
+                np.float32(
+                    [
+                        [1, 0, self.config["leftOffset"]],
+                        [0, 1, self.config["topOffset"]],
+                    ]
+                ),
+                (w, h),
+            )
         return ret
 
     def draw(self):
@@ -55,7 +70,7 @@ class Robort:
             )
         origin = self.image.copy()
         h, w, c = self.image.shape  # 帧的高、宽、通道数
-        
+
         # 进行letterbox操作
         frame_letterbox, ratio, (dw, dh) = letterbox(
             self.image.copy(), new_shape=(640, 640)
@@ -81,7 +96,7 @@ class Robort:
                 is_draw_doji=self.doji,
                 doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
                 is_draw_center=self.center,
-                center_dis=self.config['dojiOffset']
+                center_dis=self.config["dojiOffset"],
             )
         except Exception as e:
             self.print_info(f"未知错误，返回原图，错误日志如下：\n{e}\n")
@@ -89,7 +104,7 @@ class Robort:
         if my_find.standard2 <= 0:
             self.print_info(f"长度估计出错，返回原图...")
             return origin
-        
+
         # 对所有检测框进行判断
         worm_loc = 0  # 幼虫所在位置0无，1左下，2右下，3左下右下都有
         count = 0
@@ -110,8 +125,8 @@ class Robort:
                         circle,
                         my_find.standard2,
                         (int(xyxy[0]), int(xyxy[1])),
-                        thickness = 2,
-                        diameterThreshold = self.diameter_threshold
+                        thickness=2,
+                        diameterThreshold=self.diameter_threshold,
                     )
                     cv2.putText(
                         self.image,
@@ -128,13 +143,13 @@ class Robort:
             except Exception as e:
                 self.print_info(f"未知错误，返回原图，错误日志如下：\n{e}\n")
                 return origin
-        self.print_info(f'有{count}只虫，其中有{be_catch_count}只虫需要抓取')
+        self.print_info(f"有{count}只虫，其中有{be_catch_count}只虫需要抓取")
         return self.image, worm_loc
 
     def catch(self, worm_loc):
         """
         抓幼虫
-        
+
         Arguments:
             worm_loc {int} -- 0(00)无幼虫 1(01)左下有幼虫 2(10)右下有幼虫 3(11)左下右下都有幼虫
         """
@@ -143,16 +158,19 @@ class Robort:
             self.print_info(f"输出GPIO信号: {worm_loc:2b}(0无幼虫 1左下有幼虫 10右下有幼虫 11左下右下都有幼虫)")
             self.arm.act(worm_loc)
             self.arm.waiting = True
-            t = Thread(target=self.arm.wait_response, args=((self.index, self.config['sleepTime'])))
+            t = Thread(
+                target=self.arm.wait_response,
+                args=((self.index, self.config["sleepTime"])),
+            )
             t.start()
             self.flag = True
         elif not is_ready:
             if self.flag:
-                self.print_info('等待机械臂信号...')
+                self.print_info("等待机械臂信号...")
                 self.flag = False
-                
+
     def print_info(self, str):
-        print(f'--> 摄像头{self.index}：{str}')
+        print(f"--> 摄像头{self.index}：{str}")
 
 
 class Arm:
@@ -196,7 +214,6 @@ class Arm:
             out1 = False
         self.gpio_out0.write(out0)
         self.gpio_out1.write(out1)
-        
 
     def receive_signal(self):
         """
@@ -206,7 +223,7 @@ class Arm:
             bool -- True为1，False为0
         """
         return self.gpio_in.read()
-    
+
     def wait_response(self, index, sleepTime):
         time.sleep(sleepTime)
         self.waiting = False
