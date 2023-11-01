@@ -110,9 +110,16 @@ class Robort:
         count = 0
         be_catch_count = 0
         for xyxy in boxes:
-            cut_image = self.image[
-                int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])
-            ]
+            left, top, right, bottom = xyxy
+            if left < 0:
+                left = 0
+            if top < 0:
+                top = 0
+            if right > w:
+                right = w
+            if bottom > h:
+                bottom = h
+            cut_image = self.image[int(top) : int(bottom), int(left) : int(right)]
             try:
                 fast_keypoints = fast_ratio(cut_image, 3)
                 circle = fit_circle(fast_keypoints)

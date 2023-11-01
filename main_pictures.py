@@ -24,7 +24,7 @@ BOX_THRESH = 0.5
 NMS_THRESH = 0.0
 IMG_SIZE = 640
 RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
-IMAGE_FOLDER = "./test_image"
+IMAGE_FOLDER = "./3days"
 OUTPUTS_ROOT = IMAGE_FOLDER + "_outputs"
 PROBLEM_ROOT = "./problems"
 CLASSES = "worm"
@@ -112,7 +112,16 @@ if __name__ == "__main__":
             continue
         # 对所有检测框进行判断
         for index, xyxy in enumerate(boxes):
-            cut_image = img[int(xyxy[1]) : int(xyxy[3]), int(xyxy[0]) : int(xyxy[2])]
+            left, top, right, bottom = xyxy
+            if left < 0:
+                left = 0
+            if top < 0:
+                top = 0
+            if right > w:
+                right = w
+            if bottom > h:
+                bottom = h
+            cut_image = img[int(top) : int(bottom), int(left) : int(right)]
             cut_image_h, cut_image_w, cut_image_c = cut_image.shape
             try:
                 fast_keypoints = fast_ratio(cut_image, RESHAPE_RATIO)
@@ -142,7 +151,7 @@ if __name__ == "__main__":
                     f'{PROBLEM_ROOT}/{image_name.split(".")[0]}_unknown_problem.jpg'
                 )
                 cv2.imwrite(problem_dir, img)
-                print(f"未知错误，保存该图片在{problem_dir}，跳过该图片")
+                print(f"未知错误，保存该图片在{problem_dir}，跳过该图片，错误日志：\n{e}\n")
                 continue
         cv2.imwrite(save_dir, img)
         clock.print_time(f"处理完成")
