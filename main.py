@@ -42,7 +42,11 @@ def run(rk_yolo, camera_list, config):
     while True:
         for index, bot in enumerate(roborts):
             if bot.capture():
-                img = bot.draw()
+                try:
+                    img = bot.draw()
+                except Exception as e:
+                    print(f'error: 未知错误，返回原图，错误日志如下：\n{e}\n')
+                    img = bot.image
                 if isinstance(img, tuple):
                     img, worm_loc = img
                     bot.catch(worm_loc)

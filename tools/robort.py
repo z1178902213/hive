@@ -73,15 +73,19 @@ class Robort:
             return origin
 
         # 实例化六边形框检测对象
-        my_find = FindContour(
-            self.image,
-            2,
-            draw_circle=self.circle,
-            is_draw_doji=self.doji,
-            doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
-            is_draw_center=self.center,
-            center_dis=self.config['dojiOffset']
-        )
+        try:
+            my_find = FindContour(
+                self.image,
+                2,
+                draw_circle=self.circle,
+                is_draw_doji=self.doji,
+                doji_len=int((((h / 1080) + (w / 1920)) / 2) * 30),
+                is_draw_center=self.center,
+                center_dis=self.config['dojiOffset']
+            )
+        except Exception as e:
+            self.print_info(f"未知错误，返回原图，错误日志如下：\n{e}\n")
+            return origin
         if my_find.standard2 <= 0:
             self.print_info(f"长度估计出错，返回原图...")
             return origin
@@ -121,8 +125,8 @@ class Robort:
                     if be_catch:
                         be_catch_count += 1
                         worm_loc |= is_in
-            except Exception:
-                self.print_info(f"未知错误，返回原图")
+            except Exception as e:
+                self.print_info(f"未知错误，返回原图，错误日志如下：\n{e}\n")
                 return origin
         self.print_info(f'有{count}只虫，其中有{be_catch_count}只虫需要抓取')
         return self.image, worm_loc
