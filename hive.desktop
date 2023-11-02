@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Name=移虫机
+Exec=/home/orangepi/Documents/hive/start.sh
+Terminal=true
+Icon=/home/orangepi/Documents/hive/hive.ico
+Type=Application
+Categories=X-XFCE;X-Xfce-Toplevel;
