@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy.optimize import least_squares
-import cv2
 from tools.yolo_process import *
 
 

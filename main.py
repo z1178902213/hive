@@ -50,7 +50,10 @@ def run(rk_yolo, camera_list, config):
                     img, worm_loc = img
                     bot.catch(worm_loc)
                 # bot.out.write(img)
-                cv2.namedWindow(f"{index}", cv2.WINDOW_KEEPRATIO)
+                cv2.namedWindow(f"{index}", cv2.WINDOW_NORMAL)
+                if count == 0:
+                    cv2.resizeWindow(f"{index}", 960, 540)
+                    cv2.moveWindow(f"{index}", index*960, int(index/2)*540)
                 cv2.imshow(f"{index}", img)
                 # cv2.imwrite(f'./camera_output/{index}_{count}.jpg', img)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -67,11 +70,11 @@ if __name__ == "__main__":
 
     # 初始化
     print("--> 初始化RKNN环境...", end="")
-    rk_yolo = RK_YOLO("./worm.rknn")
+    rk_yolo = RK_YOLO("./worm2.rknn")
     clock.print_time("成功")
 
-    camera_list = find_and_check_cameras()
-    # camera_list = ['test1.mp4', 'test2.mp4']
+    # camera_list = find_and_check_cameras()
+    camera_list = ['test1.mp4', 'test2.mp4']
     tips = "" if config["multipleCamera"] else "，未开启多摄像头模式，默认使用第一个摄像头"
     print(f"--> 检测到{len(camera_list)}个摄像头{tips}")
     if camera_list:

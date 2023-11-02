@@ -19,12 +19,12 @@ clock.print_time("--> 加载依赖文件完成")
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 # 全局变量
-RKNN_MODEL = "worm.rknn"
+RKNN_MODEL = "worm2.rknn"
 BOX_THRESH = 0.5
 NMS_THRESH = 0.0
 IMG_SIZE = 640
 RESHAPE_RATIO = 3  # 在进行角点检测的时候所进行的放大比例
-IMAGE_FOLDER = "./test_image"
+IMAGE_FOLDER = "./3days"
 OUTPUTS_ROOT = IMAGE_FOLDER + "_outputs"
 PROBLEM_ROOT = "./problems"
 CLASSES = "worm"
