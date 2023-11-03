@@ -68,3 +68,9 @@ sudo python3 main.py
 ### 3 更新项目
 双击脚本`upgrade.sh`进行更新  
 
+### 4 程序加密打包方式
+运行`tools/setup.py`文件，代码如下：
+```shell
+cd tools
+python3 setup.py build_ext
+```
