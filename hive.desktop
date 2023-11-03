@@ -1,8 +1,9 @@
 [Desktop Entry]
 Version=1.0
+Comment=蜂巢幼虫识别控制程序
 Name=移虫机
-Exec=/home/orangepi/Documents/hive/start.sh
+Exec=/usr/local/hive/start.sh
 Terminal=true
-Icon=/home/orangepi/Documents/hive/hive.ico
+Icon=/usr/local/hive/hive.ico
 Type=Application
 Categories=X-XFCE;X-Xfce-Toplevel;

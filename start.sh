@@ -1,4 +1,4 @@
 #! /bin/bash
 
-cd /home/orangepi/Documents/hive
+cd /usr/local/hive
 sudo python3 main.py
