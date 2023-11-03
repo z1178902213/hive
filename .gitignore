@@ -3,9 +3,9 @@ runs*
 *png
 .idea
 **__pycache__**
-!test.jpg
 *.log
 *.tgz
 *.tar*
 *.avi
 *.zip
+*test*

@@ -1,4 +1,3 @@
-from periphery import GPIO
 from tools.find_contour import FindContour
 from tools.yolo_process import letterbox, box_resume
 from tools.find_worm import *
@@ -6,14 +5,23 @@ import cv2
 import time
 from threading import Thread
 
+try:
+    DEVICE = "tinker edge r"
+    from periphery import GPIO
+except ModuleNotFoundError:
+    DEVICE = "orangepi 5b"
+    import wiringpi
+    from wiringpi import GPIO
+    wiringpi.wiringPiSetup()
+
 
 class Robort:
-    def __init__(self, rk_yolo, camera_id, index, config):
+    def __init__(self, rk_yolo, camera_id, index, config, platform):
         self.config = config
         self.index = index
-        self.gpio_pin = self.config["gpioPin"][index]
+        self.gpio_pin = self.config['gpio'][platform]["gpioPin"][index]
         self.diameter_threshold = self.config["diameterThreshold"]
-        gpio_map = self.config["gpioMap"]
+        gpio_map = self.config['gpio'][platform]["gpioMap"]
 
         self.rk_yolo = rk_yolo
         self.eye = cv2.VideoCapture(camera_id)
@@ -57,6 +65,7 @@ class Robort:
         return ret
 
     def draw(self):
+        h, w, c = self.image.shape  # 帧的高、宽、通道数
         # 绘制GPIO到图像左上角
         if self.gpio:
             cv2.putText(
@@ -64,12 +73,11 @@ class Robort:
                 f"GPIO in:{self.gpio_pin[0]} out0:{self.gpio_pin[1]} out1:{self.gpio_pin[2]}",
                 (50, 50),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
+                ((h / 1080) + (w / 1920)) / 2,
                 (0, 0, 255),
                 2,
             )
         origin = self.image.copy()
-        h, w, c = self.image.shape  # 帧的高、宽、通道数
 
         # 进行letterbox操作
         frame_letterbox, ratio, (dw, dh) = letterbox(
@@ -150,7 +158,7 @@ class Robort:
             except Exception as e:
                 self.print_info(f"未知错误，返回原图，错误日志如下：\n{e}\n")
                 return origin
-        self.print_info(f"有{count}只虫，其中有{be_catch_count}只虫需要抓取")
+        # self.print_info(f"有{count}只虫，其中有{be_catch_count}只虫需要抓取")
         return self.image, worm_loc
 
     def catch(self, worm_loc):
@@ -162,7 +170,7 @@ class Robort:
         """
         is_ready = self.arm.receive_signal()
         if is_ready and not self.arm.waiting:
-            self.print_info(f"输出GPIO信号: {worm_loc:2b}(0无幼虫 1左下有幼虫 10右下有幼虫 11左下右下都有幼虫)")
+            self.print_info(f"输出GPIO信号, {worm_loc:2b}(0无幼虫 1左下有幼虫 10右下有幼虫 11左下右下都有幼虫)")
             self.arm.act(worm_loc)
             self.arm.waiting = True
             t = Thread(
@@ -177,7 +185,8 @@ class Robort:
                 self.flag = False
 
     def print_info(self, str):
-        print(f"--> 摄像头{self.index}：{str}")
+        if self.flag:
+            print(f"--> 摄像头{self.index}：{str}")
 
 
 class Arm:
@@ -189,13 +198,18 @@ class Arm:
             gpio_pin {list} -- GPIO列表 对应输入 输出1 输出2
             gpio_map {dict} -- GPIO字典 逻辑GPIO和实际GPIO号的对应
         """
-        input = gpio_map[str(gpio_pin[0])]
-        output0 = gpio_map[str(gpio_pin[1])]
-        output1 = gpio_map[str(gpio_pin[2])]
-        self.gpio_in = GPIO(input, "in")
-        self.gpio_out0 = GPIO(output0, "out")
-        self.gpio_out1 = GPIO(output1, "out")
+        self.input = gpio_map[str(gpio_pin[0])]
+        self.output0 = gpio_map[str(gpio_pin[1])]
+        self.output1 = gpio_map[str(gpio_pin[2])]
         self.waiting = False
+        if DEVICE == "tinker edge r":
+            self.gpio_in = GPIO(self.input, "in")
+            self.gpio_out0 = GPIO(self.output0, "out")
+            self.gpio_out1 = GPIO(self.output1, "out")
+        elif DEVICE == "orangepi 5b":
+            wiringpi.pinMode(self.input, GPIO.INPUT)
+            wiringpi.pinMode(self.output0, GPIO.OUTPUT)
+            wiringpi.pinMode(self.output1, GPIO.OUTPUT)
 
     def act(self, worm_loc):
         """
@@ -219,8 +233,12 @@ class Arm:
         else:
             out0 = False
             out1 = False
-        self.gpio_out0.write(out0)
-        self.gpio_out1.write(out1)
+        if DEVICE == "tinker edge r":
+            self.gpio_out0.write(out0)
+            self.gpio_out1.write(out1)
+        if DEVICE == "orangepi 5b":
+            wiringpi.digitalWrite(self.output0, GPIO.HIGH if out0 else GPIO.LOW)
+            wiringpi.digitalWrite(self.output1, GPIO.HIGH if out1 else GPIO.LOW)
 
     def receive_signal(self):
         """
@@ -229,15 +247,15 @@ class Arm:
         Returns:
             bool -- True为1，False为0
         """
-        return self.gpio_in.read()
+        if DEVICE == "tinker edge r":
+            signal = self.gpio_in.read()
+            # print(f"读取GPIO {self.input}的信号为：{signal}")
+            return signal
+        elif DEVICE == "orangepi 5b":
+            signal = wiringpi.digitalRead(self.input)
+            # print(f"读取GPIO {self.input}的信号为：{signal}")
+            return signal
 
     def wait_response(self, index, sleepTime):
         time.sleep(sleepTime)
         self.waiting = False
-
-    def close(self):
-        """
-        释放GPIO
-        """
-        self.gpio_in.close()
-        self.gpio_out.close()

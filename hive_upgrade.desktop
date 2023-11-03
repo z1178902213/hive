@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Name=移虫机更新程序
+Exec=/usr/local/hive/upgrade.sh
+Terminal=true
+Icon=/usr/local/hive/hive.ico
+Type=Application
+Categories=X-XFCE;X-Xfce-Toplevel;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Comment=蜂巢幼虫识别控制程序
+Name=移虫机
+Exec=/usr/local/hive/start.sh
+Terminal=true
+Icon=/usr/local/hive/hive.ico
+Type=Application
+Categories=X-XFCE;X-Xfce-Toplevel;

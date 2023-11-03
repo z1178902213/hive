@@ -1,4 +1,4 @@
 #! /bin/bash
 
-cd /home/linaro/Documents/hive
+cd /usr/local/hive
 sudo python3 main.py

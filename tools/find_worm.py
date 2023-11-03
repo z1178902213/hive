@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from scipy.optimize import least_squares
-import cv2
 from tools.yolo_process import *
 
 
@@ -128,15 +127,15 @@ def draw_circle(
     if draw_keypoints:
         for point in zip(x_values, y_values):
             cv2.circle(img, (point[0], point[1]), 3, (0, 0, 255), -1)  # 标记原始散点
-
-    # 绘制拟合的曲线
-    for i in range(len(x_values) - 1):
-        cv2.line(
-            img,
-            (x_values[i], y_values[i]),
-            (x_values[i + 1], y_values[i + 1]),
-            draw_color,
-            thickness,
-        )
+    if r * 2 / standard < 10:
+        # 绘制拟合的曲线
+        for i in range(len(x_values) - 1):
+            cv2.line(
+                img,
+                (x_values[i], y_values[i]),
+                (x_values[i + 1], y_values[i + 1]),
+                draw_color,
+                thickness,
+            )
 
     return img, be_catch
