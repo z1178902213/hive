@@ -1,9 +1,9 @@
 from tools.common import Clock, load_config, find_and_check_cameras
 
 clock = Clock()
-import os
 import cv2
 import warnings
+import subprocess
 from tools.robort import Robort
 from tools.yolo_process import *
 from tools.find_worm import *
@@ -11,19 +11,13 @@ from tools.find_worm import *
 # 关闭烦人的tensorflow的FutureWarning
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
+platform = subprocess.getoutput('uname -r')
+platform = 'rk3588' if 'rk3588' in platform else 'rk3399pro'
 
 def run(rk_yolo, camera_list, config):
     # 解析配置
-    output_root = config["outputRoot"]
-    problem_root = config["problemRoot"]
-    gpio_pin = config["gpioPin"]
+    gpio_pin = config['gpio'][platform]["gpioPin"]
     multiple_camera = config["multipleCamera"]
-
-    # 初始化输出文件夹
-    if not os.path.exists(output_root):
-        os.makedirs(output_root)
-    if not os.path.exists(problem_root):
-        os.makedirs(problem_root)
 
     # 初始化摄像头设备
     roborts = []
@@ -32,9 +26,9 @@ def run(rk_yolo, camera_list, config):
         for index, camera_id in enumerate(camera_list):
             if index == len(gpio_pin):
                 print(f"没有这么多组GPIO，请保持摄像头数量在{len(gpio_pin)}个")
-            roborts.append(Robort(rk_yolo, camera_id, index, config))
+            roborts.append(Robort(rk_yolo, camera_id, index, config, platform))
     else:
-        roborts.append(Robort(rk_yolo, camera_list[0], 0, config))
+        roborts.append(Robort(rk_yolo, camera_list[0], 0, config, platform))
 
     count = 0
     no_cap = 0
@@ -75,12 +69,13 @@ if __name__ == "__main__":
     print("加载完成")
 
     # 初始化
+    model = config['modelPath'][platform]
+    
     print("--> 初始化RKNN环境...", end="")
-    rk_yolo = RK_YOLO("./worm2.rknn")
+    rk_yolo = RK_YOLO(model)
     clock.print_time("成功")
 
     camera_list = find_and_check_cameras()
-    # camera_list = ['test1.mp4', 'test2.mp4']
     tips = "" if config["multipleCamera"] else "，未开启多摄像头模式，默认使用第一个摄像头"
     print(f"--> 检测到{len(camera_list)}个摄像头{tips}")
     if camera_list:

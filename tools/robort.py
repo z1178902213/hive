@@ -16,12 +16,12 @@ except ModuleNotFoundError:
 
 
 class Robort:
-    def __init__(self, rk_yolo, camera_id, index, config):
+    def __init__(self, rk_yolo, camera_id, index, config, platform):
         self.config = config
         self.index = index
-        self.gpio_pin = self.config["gpioPin"][index]
+        self.gpio_pin = self.config['gpio'][platform]["gpioPin"][index]
         self.diameter_threshold = self.config["diameterThreshold"]
-        gpio_map = self.config["gpioMap"]
+        gpio_map = self.config['gpio'][platform]["gpioMap"]
 
         self.rk_yolo = rk_yolo
         self.eye = cv2.VideoCapture(camera_id)
@@ -65,7 +65,6 @@ class Robort:
         return ret
 
     def draw(self):
-        origin = self.image.copy()
         h, w, c = self.image.shape  # 帧的高、宽、通道数
         # 绘制GPIO到图像左上角
         if self.gpio:
@@ -78,6 +77,7 @@ class Robort:
                 (0, 0, 255),
                 2,
             )
+        origin = self.image.copy()
 
         # 进行letterbox操作
         frame_letterbox, ratio, (dw, dh) = letterbox(
