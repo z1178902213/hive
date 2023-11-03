@@ -37,10 +37,12 @@ def run(rk_yolo, camera_list, config):
         roborts.append(Robort(rk_yolo, camera_list[0], 0, config))
 
     count = 0
+    no_cap = 0
     # 进入主程序逻辑
     while True:
         for index, bot in enumerate(roborts):
             if bot.capture():
+                no_cap = 0
                 try:
                     img = bot.draw()
                 except Exception as e:
@@ -59,7 +61,11 @@ def run(rk_yolo, camera_list, config):
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
             else:
-                print("--> 没有捕获到图片...")
+                no_cap += 1
+                print(f"--> 摄像头{index}：没有捕获到图片...")
+        if no_cap > 10:
+            print("--> 连续10帧没有捕获到图片，退出程序...")
+            break
         count += 1
 
 
